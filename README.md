@@ -1,20 +1,46 @@
 # LLM Sentinel
 
-An enterprise-grade reverse proxy gateway that sits between any application (Cursor, Continue, LangChain, OpenAI SDK, custom scripts) and any LLM provider (Anthropic, OpenAI, Azure OpenAI, Gemini, Bedrock, Groq, Mistral, Ollama, or any OpenAI-compatible endpoint), providing authentication, authorization, rate limiting, cost tracking, security, caching, and monitoring.
+**Your AI gateway. One endpoint, every provider, total control.**
 
-## Features
+LLM Sentinel is an enterprise-grade reverse proxy gateway that sits between your applications and LLM providers. Route requests to Anthropic, OpenAI, Azure OpenAI, Gemini, AWS Bedrock, Groq, Mistral, Ollama, or any OpenAI-compatible endpoint — all through a single, unified API. No vendor lock-in, no code changes.
 
-- **OpenAI-compatible API** — drop-in gateway: change `base_url` and `api_key`, everything works
+Any tool that supports the OpenAI SDK (Cursor, Continue, Cline, LangChain, LlamaIndex, custom scripts) works instantly by changing just `base_url` and `api_key`.
+
+## Why LLM Sentinel?
+
+- **Drop-in compatible** — OpenAI API format, works with any existing integration
 - **9 built-in providers** + unlimited custom OpenAI-compatible endpoints
-- **Authentication** — JWT + API keys, LDAP/AD integration, session management
-- **Rate limiting** — per-client/IP/global RPM and TPM limits
-- **Cost tracking** — real-time cost calculation with built-in pricing
-- **Content policies** — system prompt injection, topic blocking, model restriction
-- **Semantic caching** — cache identical requests to reduce costs
-- **Circuit breaker** — automatic failover with retry and fallback chains
-- **Admin UI** — 18-tab dark-theme dashboard with live session monitoring
-- **Security** — AES-256-GCM encryption, request signing, password policies
-- **Observability** — Prometheus metrics, structured JSON logging, audit trail
+- **Authentication & access control** — JWT + API keys, LDAP/AD, per-client permissions
+- **Rate limiting** — per-client/IP/global RPM and TPM limits with priority queuing
+- **Cost tracking** — real-time cost calculation, per-client and per-model reporting
+- **Content policies** — system prompt injection, topic blocking, model restriction, PII filtering
+- **Semantic caching** — cache identical requests to reduce costs and latency
+- **Circuit breaker** — automatic failover with retry and provider fallback chains
+- **Admin dashboard** — 18-tab dark-theme UI with WebSocket live session monitoring
+- **Enterprise security** — AES-256-GCM encryption, request signing, password policies, audit trail
+- **Observability** — Prometheus metrics, structured JSON logging, webhook alerts
+
+---
+
+## How It Works
+
+```
+Your Apps                    LLM Sentinel                     LLM Providers
+                        ┌─────────────────────┐
+  Cursor IDE ──────┐    │  Auth & Permissions  │    ┌──── Anthropic (Claude)
+  Continue   ──────┤    │  Rate Limiting (RPM) │    ├──── OpenAI (GPT-4o)
+  Python App ──────┤───>│  Content Policies    │───>├──── Azure OpenAI
+  LangChain  ──────┤    │  Cost Tracking       │    ├──── Google Gemini
+  curl / API ──────┘    │  Caching & Queuing   │    ├──── AWS Bedrock
+                        │  Circuit Breaker     │    ├──── Groq / Mistral
+  base_url=sentinel     │  Data Masking        │    ├──── Ollama (local)
+  api_key=sk-proxy-xxx  │  Live Monitoring     │    └──── Any OpenAI-compatible
+                        └─────────────────────┘
+```
+
+**Before (direct access):** Each app has its own API keys, no cost control, no audit trail.
+
+**After (with Sentinel):** One gateway, centralized keys, per-client limits, full visibility.
 
 ---
 
@@ -186,17 +212,20 @@ If you lose the key, click **Regen Key** on the client row to generate a new one
 
 ## Usage
 
+Connect any OpenAI-compatible client to LLM Sentinel — just change two lines:
+
 ### With OpenAI SDK (Python)
 
 ```python
 from openai import OpenAI
 
+# Just change base_url and api_key — everything else stays the same
 client = OpenAI(
-    base_url="http://localhost:8765/v1",
-    api_key="sk-proxy-xxx",  # Client key from Admin UI
+    base_url="http://localhost:8765/v1",   # LLM Sentinel endpoint
+    api_key="sk-proxy-xxx",                # Client key from Admin UI
 )
 
-# Using aliases (fast = claude-haiku, smart = claude-sonnet)
+# Use aliases: "fast" = Claude Haiku, "smart" = Claude Sonnet, "gpt-smart" = GPT-4o
 response = client.chat.completions.create(
     model="fast",
     messages=[{"role": "user", "content": "Hello!"}],
