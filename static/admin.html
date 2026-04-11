@@ -151,6 +151,7 @@ pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radi
   <a href="#" onclick="showTab('alerts')" id="nav-alerts"><span class="icon">&#x1F6A8;</span>Alerts</a>
   <a href="#" onclick="showTab('breakers')" id="nav-breakers"><span class="icon">&#x26A1;</span>Circuit Breakers</a>
   <a href="#" onclick="showTab('security')" id="nav-security"><span class="icon">&#x1F6E1;</span>Security</a>
+  <a href="#" onclick="showTab('users')" id="nav-users"><span class="icon">&#x1F464;</span>Users & LDAP</a>
   <a href="#" onclick="showTab('audit')" id="nav-audit"><span class="icon">&#x1F4CB;</span>Audit Log</a>
   <div class="divider"></div>
   <a href="#" onclick="showTab('requestlogs')" id="nav-requestlogs"><span class="icon">&#x1F4C4;</span>Request Logs</a>
@@ -251,6 +252,14 @@ pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radi
 <!-- ── SECURITY ── -->
 <div class="tab" id="tab-security"><div id="security-content"></div></div>
 
+<!-- ── USERS & LDAP ── -->
+<div class="tab" id="tab-users">
+<div class="toolbar"><button class="btn btn-primary" onclick="openUserModal()">&#x2B; New User</button></div>
+<div id="users-table"></div>
+<div class="section-title" style="margin-top:var(--space-xl)">&#x1F310; LDAP / Active Directory</div>
+<div id="ldap-status"></div>
+</div>
+
 <!-- ── AUDIT LOG ── -->
 <div class="tab" id="tab-audit"><div id="audit-table"></div></div>
 
@@ -321,6 +330,7 @@ const TAB_META={
   alerts:['Alert Configurations','Webhook notifications for system events'],
   breakers:['Circuit Breakers','Provider health and failover status'],
   security:['Security','Encryption, IP bans, and key rotation'],
+  users:['Users & LDAP','Manage local users and LDAP configuration'],
   audit:['Audit Log','Security event history'],
   requestlogs:['Request Logs','Detailed request and response logs'],
   cache:['Cache','Semantic response caching'],
@@ -346,7 +356,7 @@ function doLogout(){document.cookie='access_token=;max-age=0;path=/';document.co
 async function loadTab(id){
   const L={dashboard:loadDashboard,clients:loadClients,keys:loadKeys,providers:loadProviders,
     aliases:loadAliases,policies:loadPolicies,filtering:loadFiltering,costs:loadCosts,
-    alerts:loadAlerts,breakers:loadBreakers,security:loadSecurity,audit:loadAudit,
+    alerts:loadAlerts,breakers:loadBreakers,security:loadSecurity,users:loadUsers,audit:loadAudit,
     requestlogs:loadRequestLogs,cache:loadCache,queue:loadQueue,diagnostics:loadDiagnostics};
   if(L[id]) await L[id]();
 }
@@ -545,6 +555,127 @@ async function loadSecurity(){
 }
 async function rotateNow(){const r=await api('/v1/admin/security/rotate-now',{method:'POST'});toast(`Re-encrypted: ${r?.re_encrypted||0} keys`);loadSecurity();}
 async function unbanIP(ip){await api(`/v1/admin/ip-ban/${ip}/unblock`,{method:'POST'});toast('Unbanned');loadSecurity();}
+
+// ── AUDIT ──
+
+// ── USERS & LDAP ──
+
+async function loadUsers(){
+  // Local users
+  const users=await api('/v1/admin/users');
+  if(Array.isArray(users)&&users.length){
+    let rows=users.map(u=>{
+      const roleBadges=(u.roles||[]).map(r=>`<span class="badge ${r==='admin'?'purple':r==='operator'?'blue':'yellow'}">${r}</span>`).join(' ');
+      return `<tr>
+        <td><strong>${u.username}</strong><br><span style="font-size:.68rem;color:var(--muted)">${u.id.slice(0,8)}...</span></td>
+        <td>${roleBadges}</td>
+        <td>${u.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
+        <td style="font-size:.72rem;color:var(--muted)">${u.created_at?new Date(u.created_at).toLocaleString():'—'}</td>
+        <td style="font-size:.72rem;color:var(--muted)">${u.last_login_at?new Date(u.last_login_at).toLocaleString():'Never'}</td>
+        <td><div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="editUserRoles('${u.id}','${u.username}','${(u.roles||[]).join(',')}')">&#x1F3AD; Roles</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetUserPassword('${u.id}','${u.username}')">&#x1F511; Reset</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleUserActive('${u.id}','${u.username}',${u.is_active})">${u.is_active?'&#x23F8; Disable':'&#x25B6; Enable'}</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteUser('${u.id}','${u.username}')">&#x1F5D1;</button>
+        </div></td></tr>`;
+    }).join('');
+    document.getElementById('users-table').innerHTML=tw(`<table><thead><tr><th>Username</th><th>Roles</th><th>Status</th><th>Created</th><th>Last Login</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
+  } else {
+    document.getElementById('users-table').innerHTML=emptyState('&#x1F464;','No local users yet.','<button class="btn btn-primary" onclick="openUserModal()">&#x2B; Create first user</button>');
+  }
+
+  // LDAP status
+  const ldap=await api('/v1/admin/ldap/status');
+  if(ldap?.enabled){
+    document.getElementById('ldap-status').innerHTML=`
+      <div class="cards">
+        <div class="stat-card c-green"><div class="card-icon">&#x2705;</div><div class="label">Status</div><div class="value">Enabled</div></div>
+        <div class="stat-card c-blue"><div class="card-icon">&#x1F310;</div><div class="label">Server</div><div class="value" style="font-size:.9rem">${ldap.server||'—'}</div></div>
+        <div class="stat-card c-accent"><div class="card-icon">&#x1F4C2;</div><div class="label">Base DN</div><div class="value" style="font-size:.75rem">${ldap.base_dn||'—'}</div></div>
+        <div class="stat-card c-cyan"><div class="card-icon">&#x23F1;</div><div class="label">Cache TTL</div><div class="value">${ldap.cache_ttl}s</div></div>
+      </div>
+      <div class="table-wrap" style="margin-top:var(--space-md)"><table>
+        <tr><td style="color:var(--muted);width:150px">Bind DN</td><td style="font-size:.78rem">${ldap.bind_dn||'—'}</td></tr>
+        <tr><td style="color:var(--muted)">SSL</td><td>${ldap.use_ssl?'<span class="badge green">Yes</span>':'<span class="badge yellow">No</span>'}</td></tr>
+        <tr><td style="color:var(--muted)">Verify Cert</td><td>${ldap.verify_cert?'<span class="badge green">Yes</span>':'<span class="badge red">No</span>'}</td></tr>
+        <tr><td style="color:var(--muted)">Admin Group</td><td style="font-size:.78rem">${ldap.admin_group||'—'}</td></tr>
+        <tr><td style="color:var(--muted)">Operator Group</td><td style="font-size:.78rem">${ldap.operator_group||'—'}</td></tr>
+      </table></div>
+      <button class="btn btn-outline" onclick="testLdap()" style="margin-top:var(--space-md)">&#x26A1; Test LDAP Connection</button>`;
+  } else {
+    document.getElementById('ldap-status').innerHTML=`
+      <div class="cards"><div class="stat-card c-yellow"><div class="card-icon">&#x26A0;</div><div class="label">Status</div><div class="value">Disabled</div></div></div>
+      <p style="color:var(--muted);font-size:.82rem">LDAP is not enabled. Set <code>LDAP_ENABLED=true</code> in .env to configure Active Directory / LDAP authentication.</p>`;
+  }
+}
+
+function openUserModal(){
+  openModal('Create New User',
+    `<div class="form-group"><label>Username</label><input id="f-user-name" placeholder="jdoe"><div class="helper">Unique login name</div></div>
+     <div class="form-group"><label>Password</label><input id="f-user-pass" type="password" placeholder="Min 12 chars, uppercase, lowercase, digit, special"><div class="helper">Must meet password policy requirements</div></div>
+     <div class="form-group"><label>Roles</label><select id="f-user-role">
+       <option value="viewer">Viewer — read-only access</option>
+       <option value="operator">Operator — manage clients and keys</option>
+       <option value="admin">Admin — full access</option>
+     </select><div class="helper">Determines what the user can do in the admin panel</div></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createUser()">&#x2B; Create User</button>`);
+}
+
+async function createUser(){
+  const body={username:document.getElementById('f-user-name').value,password:document.getElementById('f-user-pass').value,roles:[document.getElementById('f-user-role').value]};
+  const r=await api('/v1/admin/users',{method:'POST',body:JSON.stringify(body)});
+  closeModal();
+  if(r?.id){toast(`User "${r.username}" created`);loadUsers();}else toast('Error: '+(r?.detail||JSON.stringify(r)),'error');
+}
+
+function editUserRoles(id,username,currentRoles){
+  const roles=currentRoles.split(',');
+  const sel=r=>roles.includes(r)?'selected':'';
+  openModal(`Edit Roles — ${username}`,
+    `<div class="form-group"><label>Role</label><select id="f-edit-role">
+       <option value="viewer" ${sel('viewer')}>Viewer</option>
+       <option value="operator" ${sel('operator')}>Operator</option>
+       <option value="admin" ${sel('admin')}>Admin</option>
+     </select></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveUserRoles('${id}')">Save</button>`);
+}
+
+async function saveUserRoles(id){
+  const roles=[document.getElementById('f-edit-role').value];
+  await api(`/v1/admin/users/${id}`,{method:'PUT',body:JSON.stringify({roles})});
+  closeModal();toast('Roles updated');loadUsers();
+}
+
+function resetUserPassword(id,username){
+  openModal(`Reset Password — ${username}`,
+    `<div class="form-group"><label>New Password</label><input id="f-reset-pass" type="password" placeholder="Min 12 chars, uppercase, lowercase, digit, special"></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doResetPassword('${id}')">Reset Password</button>`);
+}
+
+async function doResetPassword(id){
+  const pw=document.getElementById('f-reset-pass').value;
+  const r=await api(`/v1/admin/users/${id}/reset-password`,{method:'POST',body:JSON.stringify({password:pw})});
+  closeModal();
+  if(r?.message){toast(r.message);}else toast('Error: '+(r?.detail||''),'error');
+}
+
+async function toggleUserActive(id,username,isActive){
+  if(!confirm(`${isActive?'Disable':'Enable'} user "${username}"?`))return;
+  await api(`/v1/admin/users/${id}`,{method:'PUT',body:JSON.stringify({is_active:!isActive})});
+  toast(`User ${isActive?'disabled':'enabled'}`);loadUsers();
+}
+
+async function deleteUser(id,username){
+  if(!confirm(`Delete user "${username}"? This cannot be undone.`))return;
+  const r=await api(`/v1/admin/users/${id}`,{method:'DELETE'});
+  if(r?.message){toast(r.message);loadUsers();}else toast('Error: '+(r?.detail||''),'error');
+}
+
+async function testLdap(){
+  toast('Testing LDAP connection...','info');
+  const r=await api('/v1/admin/ldap/test',{method:'POST'});
+  if(r?.success){toast('LDAP connection successful!');}else toast('LDAP failed: '+(r?.error||''),'error');
+}
 
 // ── AUDIT ──
 

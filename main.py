@@ -1006,6 +1006,159 @@ async def validate_password_ep(request: Request, user: AuthenticatedUser = Depen
 
 
 # ===========================================================================
+# USER MANAGEMENT
+# ===========================================================================
+
+@app.get("/v1/admin/users")
+async def list_users(user: AuthenticatedUser = Depends(verify_admin)):
+    from db import LocalUser, get_db
+    from sqlalchemy import select
+    async with get_db() as db:
+        result = await db.execute(select(LocalUser).order_by(LocalUser.created_at.desc()))
+        rows = result.scalars().all()
+    return [
+        {
+            "id": u.id, "username": u.username, "roles": u.roles or [],
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+        }
+        for u in rows
+    ]
+
+
+@app.post("/v1/admin/users")
+async def create_user_endpoint(request: Request, user: AuthenticatedUser = Depends(verify_admin)):
+    from db import LocalUser, PasswordHistory, get_db
+    from sqlalchemy import select
+    from password_utils import hash_password
+    from security import validate_password
+    from datetime import datetime, timezone
+
+    body = await request.json()
+    username = body.get("username", "").strip()
+    password = body.get("password", "")
+    roles = body.get("roles", ["viewer"])
+
+    if not username:
+        raise HTTPException(400, "Username is required")
+
+    valid, errors = validate_password(password, settings.PASSWORD_MIN_LENGTH)
+    if not valid:
+        raise HTTPException(400, detail=f"Password invalid: {', '.join(errors)}")
+
+    async with get_db() as db:
+        existing = await db.execute(select(LocalUser).where(LocalUser.username == username))
+        if existing.scalars().first():
+            raise HTTPException(409, f"User '{username}' already exists")
+
+        hashed = hash_password(password, rounds=12)
+        new_user = LocalUser(
+            username=username, password_hash=hashed, roles=roles,
+            is_active=True, created_at=datetime.now(timezone.utc),
+        )
+        db.add(new_user)
+        await db.flush()
+        db.add(PasswordHistory(user_id=new_user.id, password_hash=hashed))
+        uid = new_user.id
+
+    return {"id": uid, "username": username, "roles": roles, "message": "User created"}
+
+
+@app.put("/v1/admin/users/{user_id}")
+async def update_user_endpoint(user_id: str, request: Request, user: AuthenticatedUser = Depends(verify_admin)):
+    from db import LocalUser, get_db
+    from sqlalchemy import select
+
+    body = await request.json()
+    async with get_db() as db:
+        result = await db.execute(select(LocalUser).where(LocalUser.id == user_id))
+        u = result.scalars().first()
+        if not u:
+            raise HTTPException(404, "User not found")
+        if "roles" in body:
+            u.roles = body["roles"]
+        if "is_active" in body:
+            u.is_active = body["is_active"]
+    return {"message": "User updated"}
+
+
+@app.delete("/v1/admin/users/{user_id}")
+async def delete_user_endpoint(user_id: str, user: AuthenticatedUser = Depends(verify_admin)):
+    from db import LocalUser, get_db
+    from sqlalchemy import select
+
+    async with get_db() as db:
+        result = await db.execute(select(LocalUser).where(LocalUser.id == user_id))
+        u = result.scalars().first()
+        if not u:
+            raise HTTPException(404, "User not found")
+        if u.username == user.name:
+            raise HTTPException(400, "Cannot delete your own account")
+        await db.delete(u)
+    return {"message": "User deleted"}
+
+
+@app.post("/v1/admin/users/{user_id}/reset-password")
+async def reset_user_password(user_id: str, request: Request, user: AuthenticatedUser = Depends(verify_admin)):
+    from db import LocalUser, PasswordHistory, get_db
+    from sqlalchemy import select
+    from password_utils import hash_password
+    from security import validate_password
+
+    body = await request.json()
+    new_password = body.get("password", "")
+
+    valid, errors = validate_password(new_password, settings.PASSWORD_MIN_LENGTH)
+    if not valid:
+        raise HTTPException(400, detail=f"Password invalid: {', '.join(errors)}")
+
+    async with get_db() as db:
+        result = await db.execute(select(LocalUser).where(LocalUser.id == user_id))
+        u = result.scalars().first()
+        if not u:
+            raise HTTPException(404, "User not found")
+        hashed = hash_password(new_password, rounds=12)
+        u.password_hash = hashed
+        db.add(PasswordHistory(user_id=u.id, password_hash=hashed))
+    return {"message": f"Password reset for {u.username}"}
+
+
+@app.get("/v1/admin/ldap/status")
+async def ldap_status(user: AuthenticatedUser = Depends(verify_admin)):
+    return {
+        "enabled": settings.LDAP_ENABLED,
+        "server": settings.LDAP_SERVER if settings.LDAP_ENABLED else None,
+        "base_dn": settings.LDAP_BASE_DN if settings.LDAP_ENABLED else None,
+        "bind_dn": settings.LDAP_BIND_DN if settings.LDAP_ENABLED else None,
+        "use_ssl": settings.LDAP_USE_SSL,
+        "verify_cert": settings.LDAP_VERIFY_CERT,
+        "admin_group": settings.LDAP_ADMIN_GROUP if settings.LDAP_ENABLED else None,
+        "operator_group": settings.LDAP_OPERATOR_GROUP if settings.LDAP_ENABLED else None,
+        "cache_ttl": settings.LDAP_CACHE_TTL_SECONDS,
+    }
+
+
+@app.post("/v1/admin/ldap/test")
+async def ldap_test(user: AuthenticatedUser = Depends(verify_admin)):
+    if not settings.LDAP_ENABLED:
+        return {"success": False, "error": "LDAP is not enabled"}
+    try:
+        from ldap3 import Server, Connection, ALL, Tls
+        import ssl
+        tls_config = None
+        if settings.LDAP_USE_SSL:
+            tls_config = Tls(validate=ssl.CERT_REQUIRED if settings.LDAP_VERIFY_CERT else ssl.CERT_NONE)
+        server = Server(settings.LDAP_SERVER, use_ssl=settings.LDAP_USE_SSL, tls=tls_config, get_info=ALL)
+        conn = Connection(server, user=settings.LDAP_BIND_DN, password=settings.LDAP_BIND_PASSWORD, auto_bind=True)
+        server_info = str(server.info) if server.info else "Connected"
+        conn.unbind()
+        return {"success": True, "server_info": server_info[:500]}
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+# ===========================================================================
 # IP BANS
 # ===========================================================================
 
