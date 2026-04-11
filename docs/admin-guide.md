@@ -41,8 +41,8 @@ This guide covers everything an administrator needs to install, configure, manag
 
 ```bash
 # 1. Clone
-git clone https://github.com/ozdemirumit/onPrem-LLM-Sentinel.git
-cd onPrem-LLM-Sentinel
+git clone https://github.com/ozdemirumit/LLM-Sentinel.git
+cd LLM-Sentinel
 
 # 2. Virtual environment
 python -m venv .venv

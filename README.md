@@ -125,8 +125,8 @@ See the full collection: [docs/screenshots/](docs/screenshots/)
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/ozdemirumit/onPrem-LLM-Sentinel.git
-cd onPrem-LLM-Sentinel
+git clone https://github.com/ozdemirumit/LLM-Sentinel.git
+cd LLM-Sentinel
 ```
 
 ### 2. Create a Virtual Environment
@@ -225,7 +225,7 @@ On first run, the following are automatically created:
 **Open a separate terminal** (while the server is running):
 
 ```bash
-cd onPrem-LLM-Sentinel
+cd LLM-Sentinel
 .venv\Scripts\activate.bat        # Windows
 # or: source .venv/bin/activate    # Linux/Mac
 
@@ -935,15 +935,15 @@ How onPrem LLM Sentinel compares to other LLM gateways:
 
 Contributions are welcome! Here's how you can help:
 
-1. **Report bugs** — open an [issue](https://github.com/ozdemirumit/onPrem-LLM-Sentinel/issues)
+1. **Report bugs** — open an [issue](https://github.com/ozdemirumit/LLM-Sentinel/issues)
 2. **Suggest features** — describe your use case in an issue
 3. **Submit a PR** — fork the repo, create a branch, make changes, open a pull request
 
 ### Development Setup
 
 ```bash
-git clone https://github.com/ozdemirumit/onPrem-LLM-Sentinel.git
-cd onPrem-LLM-Sentinel
+git clone https://github.com/ozdemirumit/LLM-Sentinel.git
+cd LLM-Sentinel
 python -m venv .venv && .venv\Scripts\activate.bat
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
@@ -958,7 +958,7 @@ python -m pytest tests/ -v   # Run all 147 tests
 
 If you find onPrem LLM Sentinel useful, please star the repo — it helps others discover the project!
 
-[![Star this repo](https://img.shields.io/github/stars/ozdemirumit/onPrem-LLM-Sentinel?style=social)](https://github.com/ozdemirumit/onPrem-LLM-Sentinel)
+[![Star this repo](https://img.shields.io/github/stars/ozdemirumit/LLM-Sentinel?style=social)](https://github.com/ozdemirumit/LLM-Sentinel)
 
 ---
 
@@ -971,5 +971,5 @@ This project is licensed under the [MIT License](LICENSE).
 <p align="center">
   <strong>onPrem LLM Sentinel — Enterprise LLM Gateway & Policy Engine</strong><br>
   Built with Python & FastAPI for teams that need control over their AI infrastructure.<br><br>
-  <a href="https://github.com/ozdemirumit/onPrem-LLM-Sentinel">GitHub</a> · <a href="docs/user-guide.md">User Guide</a> · <a href="docs/admin-guide.md">Admin Guide</a> · <a href="https://github.com/ozdemirumit/onPrem-LLM-Sentinel/issues">Report Bug</a> · <a href="https://github.com/ozdemirumit/onPrem-LLM-Sentinel/issues">Request Feature</a>
+  <a href="https://github.com/ozdemirumit/LLM-Sentinel">GitHub</a> · <a href="docs/user-guide.md">User Guide</a> · <a href="docs/admin-guide.md">Admin Guide</a> · <a href="https://github.com/ozdemirumit/LLM-Sentinel/issues">Report Bug</a> · <a href="https://github.com/ozdemirumit/LLM-Sentinel/issues">Request Feature</a>
 </p>
