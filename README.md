@@ -1,10 +1,40 @@
 # LLM Sentinel
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/Tests-147%20passed-brightgreen.svg)](#running-tests)
+[![OpenAI Compatible](https://img.shields.io/badge/API-OpenAI%20Compatible-10a37f.svg)](#usage)
+
 **Your AI gateway. One endpoint, every provider, total control.**
 
 LLM Sentinel is an enterprise-grade reverse proxy gateway that sits between your applications and LLM providers. Route requests to Anthropic, OpenAI, Azure OpenAI, Gemini, AWS Bedrock, Groq, Mistral, Ollama, or any OpenAI-compatible endpoint — all through a single, unified API. No vendor lock-in, no code changes.
 
 Any tool that supports the OpenAI SDK (Cursor, Continue, Cline, LangChain, LlamaIndex, custom scripts) works instantly by changing just `base_url` and `api_key`.
+
+> **If you find this project useful, please consider giving it a star!** It helps others discover the project.
+
+## Screenshots
+
+| Dashboard | Clients | API Key Pools |
+|:---------:|:-------:|:------------:|
+| ![Dashboard](docs/screenshots/03-dashboard.png) | ![Clients](docs/screenshots/04-clients-list.png) | ![Keys](docs/screenshots/10-keys-overview.png) |
+
+| Cost Tracking | Aliases | Content Policies |
+|:------------:|:-------:|:----------------:|
+| ![Costs](docs/screenshots/22-costs-rates.png) | ![Aliases](docs/screenshots/12-aliases-list.png) | ![Policies](docs/screenshots/19-policies-list.png) |
+
+| Security | Request Logs | Cache |
+|:--------:|:------------:|:-----:|
+| ![Security](docs/screenshots/24-security.png) | ![Logs](docs/screenshots/25-request-logs.png) | ![Cache](docs/screenshots/26-cache.png) |
+
+<details>
+<summary><strong>View all 34 screenshots</strong></summary>
+
+See the full collection: [docs/screenshots/](docs/screenshots/)
+
+</details>
+
+---
 
 ## Why LLM Sentinel?
 
@@ -805,6 +835,66 @@ llm-sentinel/
 
 ---
 
+## Comparison
+
+How LLM Sentinel compares to other LLM gateways:
+
+| Feature | LLM Sentinel | LiteLLM | Helicone | Portkey |
+|---------|:---:|:---:|:---:|:---:|
+| Open Source | ✅ MIT | ✅ | Partial | ❌ |
+| Self-hosted | ✅ | ✅ | ✅ | ❌ |
+| Admin UI | ✅ 18 tabs | ❌ CLI only | ✅ | ✅ |
+| Content Policies | ✅ 6 types | ❌ | ❌ | Partial |
+| Data Masking | ✅ 20 patterns | ❌ | ❌ | ❌ |
+| Cost Tracking | ✅ Per-client | ✅ | ✅ | ✅ |
+| Semantic Cache | ✅ | ✅ | ❌ | ✅ |
+| Circuit Breaker | ✅ | ✅ | ❌ | ✅ |
+| Live Sessions | ✅ WebSocket | ❌ | ❌ | ❌ |
+| Priority Queue | ✅ | ❌ | ❌ | ❌ |
+| Request Signing | ✅ HMAC-SHA256 | ❌ | ❌ | ❌ |
+| Zero-dependency UI | ✅ No npm/node | ❌ | ❌ | ❌ |
+| Single binary deploy | ✅ `python main.py` | ❌ | ❌ | ❌ |
+
+---
+
+## Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Report bugs** — open an [issue](https://github.com/ozdemirumit/LLM-Sentinel/issues)
+2. **Suggest features** — describe your use case in an issue
+3. **Submit a PR** — fork the repo, create a branch, make changes, open a pull request
+
+### Development Setup
+
+```bash
+git clone https://github.com/ozdemirumit/LLM-Sentinel.git
+cd LLM-Sentinel
+python -m venv .venv && .venv\Scripts\activate.bat
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+cp .env.example .env
+# Set JWT_SECRET and KEY_ENCRYPTION_SECRET in .env
+python -m pytest tests/ -v   # Run all 147 tests
+```
+
+---
+
+## Star History
+
+If you find LLM Sentinel useful, please star the repo — it helps others discover the project!
+
+[![Star this repo](https://img.shields.io/github/stars/ozdemirumit/LLM-Sentinel?style=social)](https://github.com/ozdemirumit/LLM-Sentinel)
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  <strong>Built with Python, FastAPI, and a passion for AI infrastructure.</strong><br>
+  <a href="https://github.com/ozdemirumit/LLM-Sentinel">GitHub</a> · <a href="docs/user-guide.md">User Guide</a> · <a href="docs/admin-guide.md">Admin Guide</a>
+</p>
