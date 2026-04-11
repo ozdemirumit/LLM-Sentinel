@@ -1,5 +1,5 @@
 """
-Pydantic v2 request / response models for the Enterprise LLM Sentinel.
+Pydantic v2 request / response models for the onPrem LLM Sentinel.
 
 Every model used by API endpoints, WebSocket messages, or internal
 data transfer is defined here.

@@ -1,6 +1,6 @@
 # Admin Guide
 
-This guide covers everything an administrator needs to install, configure, manage, and maintain the Enterprise LLM Sentinel.
+This guide covers everything an administrator needs to install, configure, manage, and maintain the onPrem LLM Sentinel.
 
 ---
 
@@ -41,8 +41,8 @@ This guide covers everything an administrator needs to install, configure, manag
 
 ```bash
 # 1. Clone
-git clone https://github.com/ozdemirumit/LLM-Sentinel.git
-cd LLM-Sentinel
+git clone https://github.com/ozdemirumit/onPrem-LLM-Sentinel.git
+cd onPrem-LLM-Sentinel
 
 # 2. Virtual environment
 python -m venv .venv
@@ -219,7 +219,7 @@ python main.py --create-admin
 ```
 
 ```
-=== LLM Sentinel — Admin User Setup ===
+=== onPrem LLM Sentinel — Admin User Setup ===
 
 Admin username: admin
 Admin password: ********

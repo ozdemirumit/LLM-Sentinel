@@ -1,5 +1,5 @@
 """
-Prometheus metrics for the Enterprise LLM Sentinel.
+Prometheus metrics for the onPrem LLM Sentinel.
 """
 
 from __future__ import annotations
@@ -15,32 +15,32 @@ log = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 requests_total = Counter(
-    "llm_sentinel_requests_total",
+    "onprem_llm_sentinel_requests_total",
     "Total LLM requests",
     ["client", "provider", "model", "status"],
 )
 
 tokens_total = Counter(
-    "llm_sentinel_tokens_total",
+    "onprem_llm_sentinel_tokens_total",
     "Total tokens processed",
     ["client", "provider", "type"],  # type = input | output
 )
 
 cost_usd_total = Counter(
-    "llm_sentinel_cost_usd_total",
+    "onprem_llm_sentinel_cost_usd_total",
     "Total cost in USD",
     ["client_id", "provider", "model"],
 )
 
-cache_hits_total = Counter("llm_sentinel_cache_hits_total", "Cache hits")
-cache_misses_total = Counter("llm_sentinel_cache_misses_total", "Cache misses")
+cache_hits_total = Counter("onprem_llm_sentinel_cache_hits_total", "Cache hits")
+cache_misses_total = Counter("onprem_llm_sentinel_cache_misses_total", "Cache misses")
 
 # ---------------------------------------------------------------------------
 # Histograms
 # ---------------------------------------------------------------------------
 
 request_duration = Histogram(
-    "llm_sentinel_request_duration_seconds",
+    "onprem_llm_sentinel_request_duration_seconds",
     "Request duration in seconds",
     ["client", "provider", "model"],
     buckets=(0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0),
@@ -50,27 +50,27 @@ request_duration = Histogram(
 # Gauges
 # ---------------------------------------------------------------------------
 
-active_requests = Gauge("llm_sentinel_active_requests", "Currently active requests")
+active_requests = Gauge("onprem_llm_sentinel_active_requests", "Currently active requests")
 
 api_key_health = Gauge(
-    "llm_sentinel_api_key_health",
+    "onprem_llm_sentinel_api_key_health",
     "API key health (1=healthy, 0=unhealthy)",
     ["provider", "key_index", "healthy"],
 )
 
 circuit_breaker_state = Gauge(
-    "llm_sentinel_circuit_breaker_state",
+    "onprem_llm_sentinel_circuit_breaker_state",
     "Circuit breaker state (0=CLOSED, 1=HALF_OPEN, 2=OPEN)",
     ["provider", "state"],
 )
 
 quota_usage_percent = Gauge(
-    "llm_sentinel_quota_usage_percent",
+    "onprem_llm_sentinel_quota_usage_percent",
     "Quota usage percentage",
     ["client"],
 )
 
-queue_depth = Gauge("llm_sentinel_queue_depth", "Current queue depth")
+queue_depth = Gauge("onprem_llm_sentinel_queue_depth", "Current queue depth")
 
 
 # ---------------------------------------------------------------------------

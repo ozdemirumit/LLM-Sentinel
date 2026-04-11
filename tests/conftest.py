@@ -1,5 +1,5 @@
 """
-Shared fixtures for the Enterprise LLM Sentinel test suite.
+Shared fixtures for the onPrem LLM Sentinel test suite.
 """
 
 from __future__ import annotations

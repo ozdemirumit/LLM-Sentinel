@@ -1,4 +1,4 @@
-# LLM Sentinel
+# onPrem LLM Sentinel
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -7,7 +7,7 @@
 
 **Enterprise LLM Gateway & Policy Engine — unified API, intelligent routing, full governance.**
 
-LLM Sentinel is a high-performance gateway that unifies access to all major LLM providers through a single OpenAI-compatible API. It gives engineering and platform teams centralized control over AI usage — routing, cost management, access policies, and real-time observability — without changing a single line of application code.
+onPrem LLM Sentinel is a high-performance gateway that unifies access to all major LLM providers through a single OpenAI-compatible API. It gives engineering and platform teams centralized control over AI usage — routing, cost management, access policies, and real-time observability — without changing a single line of application code.
 
 Connect **Anthropic, OpenAI, Azure OpenAI, Gemini, AWS Bedrock, Groq, Mistral, Ollama**, or any OpenAI-compatible endpoint. Any tool that speaks the OpenAI protocol (Cursor, Continue, Cline, LangChain, LlamaIndex, custom apps) works instantly — just change `base_url` and `api_key`.
 
@@ -82,7 +82,7 @@ See the full collection: [docs/screenshots/](docs/screenshots/)
 ## Architecture
 
 ```
-  Applications                 LLM Sentinel Gateway              LLM Providers
+  Applications                 onPrem LLM Sentinel Gateway              LLM Providers
                           ┌───────────────────────────┐
                           │                           │
   Cursor IDE ─────┐       │   ┌─ Auth & Permissions   │       ┌── Anthropic
@@ -125,8 +125,8 @@ See the full collection: [docs/screenshots/](docs/screenshots/)
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/ozdemirumit/LLM-Sentinel.git
-cd LLM-Sentinel
+git clone https://github.com/ozdemirumit/onPrem-LLM-Sentinel.git
+cd onPrem-LLM-Sentinel
 ```
 
 ### 2. Create a Virtual Environment
@@ -210,7 +210,7 @@ INFO  db: Database tables initialized
 INFO  filter_db: Seeded built-in filter patterns | {"count": 20}
 INFO  model_alias: Seeded built-in model aliases | {"count": 7}
 INFO  cost_tracker: Seeded built-in cost rates | {"count": 10}
-INFO  main: LLM Sentinel started | {"host": "0.0.0.0", "port": 8765, ...}
+INFO  main: onPrem LLM Sentinel started | {"host": "0.0.0.0", "port": 8765, ...}
 INFO  Uvicorn running on http://0.0.0.0:8765
 ```
 
@@ -225,7 +225,7 @@ On first run, the following are automatically created:
 **Open a separate terminal** (while the server is running):
 
 ```bash
-cd LLM-Sentinel
+cd onPrem-LLM-Sentinel
 .venv\Scripts\activate.bat        # Windows
 # or: source .venv/bin/activate    # Linux/Mac
 
@@ -234,7 +234,7 @@ python main.py --create-admin
 
 It will interactively ask:
 ```
-=== LLM Sentinel — Admin User Setup ===
+=== onPrem LLM Sentinel — Admin User Setup ===
 
 Admin username: admin
 Admin password: ********
@@ -276,7 +276,7 @@ If you lose the key, click **Regen Key** on the client row to generate a new one
 
 ## Usage
 
-Connect any OpenAI-compatible client to LLM Sentinel — just change two lines:
+Connect any OpenAI-compatible client to onPrem LLM Sentinel — just change two lines:
 
 ### With OpenAI SDK (Python)
 
@@ -285,7 +285,7 @@ from openai import OpenAI
 
 # Just change base_url and api_key — everything else stays the same
 client = OpenAI(
-    base_url="http://localhost:8765/v1",   # LLM Sentinel endpoint
+    base_url="http://localhost:8765/v1",   # onPrem LLM Sentinel endpoint
     api_key="sk-proxy-xxx",                # Client key from Admin UI
 )
 
@@ -359,7 +359,7 @@ print(response.text)
 
 ## Client Configuration Guide
 
-Any application that supports custom OpenAI endpoints works with LLM Sentinel. Here are step-by-step instructions for popular tools.
+Any application that supports custom OpenAI endpoints works with onPrem LLM Sentinel. Here are step-by-step instructions for popular tools.
 
 ### Cursor IDE
 
@@ -369,7 +369,7 @@ Any application that supports custom OpenAI endpoints works with LLM Sentinel. H
    - **OpenAI API Base:** `http://localhost:8765/v1`
    - **API Key:** `sk-proxy-xxx` (your client key from Admin UI)
    - **Model:** `smart` or `fast` or any model name
-4. All AI features (Tab completion, Chat, Composer) now route through LLM Sentinel
+4. All AI features (Tab completion, Chat, Composer) now route through onPrem LLM Sentinel
 
 > **Tip:** Use the `fast` alias for Tab completions (speed matters) and `smart` for Chat/Composer (quality matters).
 
@@ -383,14 +383,14 @@ Edit the Continue config file:
 {
   "models": [
     {
-      "title": "LLM Sentinel - Smart",
+      "title": "onPrem LLM Sentinel - Smart",
       "provider": "openai",
       "model": "smart",
       "apiBase": "http://localhost:8765/v1",
       "apiKey": "sk-proxy-xxx"
     },
     {
-      "title": "LLM Sentinel - Fast",
+      "title": "onPrem LLM Sentinel - Fast",
       "provider": "openai",
       "model": "fast",
       "apiBase": "http://localhost:8765/v1",
@@ -398,7 +398,7 @@ Edit the Continue config file:
     }
   ],
   "tabAutocompleteModel": {
-    "title": "LLM Sentinel - Autocomplete",
+    "title": "onPrem LLM Sentinel - Autocomplete",
     "provider": "openai",
     "model": "fast",
     "apiBase": "http://localhost:8765/v1",
@@ -480,7 +480,7 @@ For any tool or library that supports custom OpenAI endpoints:
 | **Model** | Any alias (`fast`, `smart`, `powerful`) or real model name (`claude-sonnet-4-6`, `gpt-4o`) |
 | **API Type** | `openai` or `openai-compatible` |
 
-**The key insight:** LLM Sentinel speaks the OpenAI API protocol. Any client that can talk to OpenAI can talk to Sentinel — just change the URL and key.
+**The key insight:** onPrem LLM Sentinel speaks the OpenAI API protocol. Any client that can talk to OpenAI can talk to Sentinel — just change the URL and key.
 
 ---
 
@@ -894,9 +894,9 @@ MAX_CONCURRENT_GLOBAL=500
 
 ## Comparison
 
-How LLM Sentinel compares to other LLM gateways:
+How onPrem LLM Sentinel compares to other LLM gateways:
 
-| Feature | LLM Sentinel | LiteLLM | Helicone | Portkey |
+| Feature | onPrem LLM Sentinel | LiteLLM | Helicone | Portkey |
 |---------|:---:|:---:|:---:|:---:|
 | **Gateway & Routing** | | | | |
 | Open Source | ✅ MIT | ✅ | Partial | ❌ |
@@ -935,15 +935,15 @@ How LLM Sentinel compares to other LLM gateways:
 
 Contributions are welcome! Here's how you can help:
 
-1. **Report bugs** — open an [issue](https://github.com/ozdemirumit/LLM-Sentinel/issues)
+1. **Report bugs** — open an [issue](https://github.com/ozdemirumit/onPrem-LLM-Sentinel/issues)
 2. **Suggest features** — describe your use case in an issue
 3. **Submit a PR** — fork the repo, create a branch, make changes, open a pull request
 
 ### Development Setup
 
 ```bash
-git clone https://github.com/ozdemirumit/LLM-Sentinel.git
-cd LLM-Sentinel
+git clone https://github.com/ozdemirumit/onPrem-LLM-Sentinel.git
+cd onPrem-LLM-Sentinel
 python -m venv .venv && .venv\Scripts\activate.bat
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
@@ -956,9 +956,9 @@ python -m pytest tests/ -v   # Run all 147 tests
 
 ## Star History
 
-If you find LLM Sentinel useful, please star the repo — it helps others discover the project!
+If you find onPrem LLM Sentinel useful, please star the repo — it helps others discover the project!
 
-[![Star this repo](https://img.shields.io/github/stars/ozdemirumit/LLM-Sentinel?style=social)](https://github.com/ozdemirumit/LLM-Sentinel)
+[![Star this repo](https://img.shields.io/github/stars/ozdemirumit/onPrem-LLM-Sentinel?style=social)](https://github.com/ozdemirumit/onPrem-LLM-Sentinel)
 
 ---
 
@@ -969,7 +969,7 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  <strong>LLM Sentinel — Enterprise LLM Gateway & Policy Engine</strong><br>
+  <strong>onPrem LLM Sentinel — Enterprise LLM Gateway & Policy Engine</strong><br>
   Built with Python & FastAPI for teams that need control over their AI infrastructure.<br><br>
-  <a href="https://github.com/ozdemirumit/LLM-Sentinel">GitHub</a> · <a href="docs/user-guide.md">User Guide</a> · <a href="docs/admin-guide.md">Admin Guide</a> · <a href="https://github.com/ozdemirumit/LLM-Sentinel/issues">Report Bug</a> · <a href="https://github.com/ozdemirumit/LLM-Sentinel/issues">Request Feature</a>
+  <a href="https://github.com/ozdemirumit/onPrem-LLM-Sentinel">GitHub</a> · <a href="docs/user-guide.md">User Guide</a> · <a href="docs/admin-guide.md">Admin Guide</a> · <a href="https://github.com/ozdemirumit/onPrem-LLM-Sentinel/issues">Report Bug</a> · <a href="https://github.com/ozdemirumit/onPrem-LLM-Sentinel/issues">Request Feature</a>
 </p>

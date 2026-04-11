@@ -131,7 +131,7 @@ async def test_webhook(config_id: str) -> dict[str, Any]:
     if not config:
         return {"success": False, "error": "Config not found"}
 
-    await _send_webhook(config, "test_ping", "info", "Test ping from LLM Sentinel", None)
+    await _send_webhook(config, "test_ping", "info", "Test ping from onPrem LLM Sentinel", None)
     return {"success": True, "webhook_url": config.webhook_url}
 
 

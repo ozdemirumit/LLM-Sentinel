@@ -1,6 +1,6 @@
 # User Guide
 
-This guide is for developers and applications that connect to the LLM Sentinel. You will learn how to authenticate, send chat requests, use model aliases, handle streaming, work with embeddings, and interpret error responses.
+This guide is for developers and applications that connect to the onPrem LLM Sentinel. You will learn how to authenticate, send chat requests, use model aliases, handle streaming, work with embeddings, and interpret error responses.
 
 ---
 
@@ -598,7 +598,7 @@ Edit `~/.continue/config.json`:
 {
   "models": [
     {
-      "title": "LLM Sentinel",
+      "title": "onPrem LLM Sentinel",
       "provider": "openai",
       "model": "smart",
       "apiBase": "http://localhost:8765/v1",

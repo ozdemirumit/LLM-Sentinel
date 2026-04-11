@@ -26,7 +26,7 @@ def generate_self_signed_cert(
     cert_path: str = "certs/server.crt",
     key_path: str = "certs/server.key",
     days: int = 365,
-    common_name: str = "LLM Sentinel",
+    common_name: str = "onPrem LLM Sentinel",
 ) -> tuple[Path, Path]:
     """
     Generate a self-signed RSA 2048 X.509 certificate.
@@ -47,7 +47,7 @@ def generate_self_signed_cert(
 
     # Build certificate
     subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Enterprise LLM Sentinel"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "onPrem LLM Sentinel"),
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
     ])
 

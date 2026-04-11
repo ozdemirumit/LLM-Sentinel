@@ -1,5 +1,5 @@
 """
-Structured JSON logging module for the Enterprise LLM Sentinel.
+Structured JSON logging module for the onPrem LLM Sentinel.
 
 Usage:
     from logger import setup_logging, get_logger

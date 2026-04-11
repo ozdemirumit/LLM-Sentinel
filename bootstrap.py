@@ -45,7 +45,7 @@ async def _create_admin_async() -> None:
             return
 
     # Interactive prompts
-    print("\n=== LLM Sentinel — Admin User Setup ===\n")
+    print("\n=== onPrem LLM Sentinel — Admin User Setup ===\n")
 
     username = input("Admin username: ").strip()
     if not username:

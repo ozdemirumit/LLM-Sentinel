@@ -1,5 +1,5 @@
 """
-LLM Sentinel — main orchestrator.
+onPrem LLM Sentinel — main orchestrator.
 
 Routes requests to providers via adapters, handles retry/fallback,
 alias resolution, context window protection, and session tracking.

@@ -8,7 +8,7 @@ class TestAdminUI:
     async def test_login_page(self, unauth_client: AsyncClient):
         r = await unauth_client.get("/admin/login")
         assert r.status_code == 200
-        assert "LLM Sentinel" in r.text
+        assert "onPrem LLM Sentinel" in r.text
 
     async def test_login_post_success(self, unauth_client: AsyncClient):
         from db import get_db, LocalUser

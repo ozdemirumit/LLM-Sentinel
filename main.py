@@ -1,5 +1,5 @@
 """
-LLM Sentinel — main FastAPI application.
+onPrem LLM Sentinel — main FastAPI application.
 
 CLI:
   python main.py               — start server
@@ -129,11 +129,11 @@ async def lifespan(app: FastAPI):
     # Fire startup alert
     try:
         from alerting import fire_alert, AlertEventType, AlertSeverity
-        await fire_alert(AlertEventType.system_start, AlertSeverity.info, "LLM Sentinel started")
+        await fire_alert(AlertEventType.system_start, AlertSeverity.info, "onPrem LLM Sentinel started")
     except Exception:
         pass
 
-    log.info("LLM Sentinel started", extra={
+    log.info("onPrem LLM Sentinel started", extra={
         "host": settings.PROXY_HOST,
         "port": settings.PROXY_PORT,
         "workers": settings.PROXY_WORKERS,
@@ -154,7 +154,7 @@ async def lifespan(app: FastAPI):
         t.cancel()
     from redis_client import _client
     await _client.close()
-    log.info("LLM Sentinel shutdown")
+    log.info("onPrem LLM Sentinel shutdown")
 
 
 async def _background_cleanup():
@@ -201,7 +201,7 @@ async def _background_health_check():
 from config import settings
 
 app = FastAPI(
-    title="LLM Sentinel",
+    title="onPrem LLM Sentinel",
     version="1.0.0",
     docs_url="/docs" if settings.PROXY_DOCS_ENABLED else None,
     redoc_url="/redoc" if settings.PROXY_DOCS_ENABLED else None,
@@ -1540,7 +1540,7 @@ def _admin_login_html(error: str = "") -> str:
     err_div = f'<div class="alert-error">{error}</div>' if error else ""
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LLM Sentinel — Sign In</title>
+<title>onPrem LLM Sentinel — Sign In</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:#090b10;color:#e8eaf0;font-family:'Inter',system-ui,-apple-system,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;-webkit-font-smoothing:antialiased}}
@@ -1563,7 +1563,7 @@ button[type=submit]:active{{transform:translateY(0)}}
 </style></head><body>
 <div class="card">
 <div class="brand">
-<h1>LLM Sentinel</h1>
+<h1>onPrem LLM Sentinel</h1>
 <span>Enterprise Gateway</span>
 </div>
 {err_div}
