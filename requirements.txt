@@ -1,0 +1,25 @@
+fastapi>=0.115.6
+uvicorn[standard]>=0.32.1
+sqlalchemy[asyncio]>=2.0.36
+alembic>=1.14.0
+aiosqlite>=0.20.0
+psycopg[binary]>=3.2.4            # PostgreSQL async (asyncpg yerine — 3.14 uyumlu)
+pydantic-settings>=2.7.0
+python-dotenv>=1.0.1
+PyJWT>=2.10.1
+cryptography>=44.0.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.2.1
+ldap3>=2.9.1
+anthropic>=0.40.0
+openai>=1.57.4
+google-genai>=0.8.0
+httpx>=0.28.1
+python-multipart>=0.0.20
+redis>=5.2.1
+prometheus_client>=0.21.1
+hvac>=2.3.0                    # HashiCorp Vault client (opsiyonel)
+boto3>=1.35.0                  # AWS Bedrock provider (opsiyonel)
+# tiktoken>=0.9.0              # Rust compiler gerektirir; yoksa karakter/4 fallback kullanılır
+#                                Rust varsa: pip install tiktoken
+#                                Yoksa: proxy otomatik fallback kullanır (estimate_tokens fonksiyonu)

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LLM Sentinel — Admin Console</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#090b10;--bg2:#0f1219;--card:#151921;--card-hover:#1a2030;
+  --border:#1e2536;--border-light:#2a3348;
+  --text:#e8eaf0;--text-secondary:#8b92a8;--muted:#5c6478;
+  --accent:#8b5cf6;--accent-light:#a78bfa;--accent-dark:#6d28d9;--accent-glow:rgba(139,92,246,.15);
+  --green:#22c55e;--green-bg:rgba(34,197,94,.1);
+  --red:#ef4444;--red-bg:rgba(239,68,68,.1);
+  --yellow:#eab308;--yellow-bg:rgba(234,179,8,.1);
+  --blue:#3b82f6;--blue-bg:rgba(59,130,246,.1);
+  --cyan:#06b6d4;
+  --space-xs:.25rem;--space-sm:.5rem;--space-md:1rem;--space-lg:1.5rem;--space-xl:2rem;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;--radius-xl:18px;
+  --shadow:0 1px 3px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.2);
+  --shadow-lg:0 4px 20px rgba(0,0,0,.4);
+  --transition:all .2s cubic-bezier(.4,0,.2,1);
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ── SIDEBAR ── */
+.sidebar{width:250px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-brand{padding:var(--space-lg) var(--space-lg) var(--space-md);border-bottom:1px solid var(--border)}
+.sidebar-brand h1{font-size:1.15rem;font-weight:700;background:linear-gradient(135deg,var(--accent-light),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sidebar-brand span{display:block;font-size:.68rem;color:var(--muted);margin-top:2px;letter-spacing:.04em;text-transform:uppercase}
+.sidebar-nav{flex:1;overflow-y:auto;padding:var(--space-sm) 0}
+.sidebar-nav a{display:flex;align-items:center;gap:var(--space-sm);padding:.55rem var(--space-lg);color:var(--text-secondary);text-decoration:none;font-size:.82rem;font-weight:450;border-left:3px solid transparent;transition:var(--transition)}
+.sidebar-nav a .icon{width:20px;text-align:center;font-size:.95rem;flex-shrink:0}
+.sidebar-nav a:hover{color:var(--text);background:var(--accent-glow)}
+.sidebar-nav a.active{color:var(--accent-light);background:var(--accent-glow);border-left-color:var(--accent);font-weight:600}
+.sidebar-nav .divider{height:1px;background:var(--border);margin:var(--space-sm) var(--space-lg)}
+.sidebar-footer{padding:var(--space-md) var(--space-lg);border-top:1px solid var(--border);font-size:.7rem;color:var(--muted)}
+.sidebar-footer a{color:var(--red);text-decoration:none;display:flex;align-items:center;gap:var(--space-xs);font-size:.8rem;font-weight:500}
+.sidebar-footer a:hover{color:#f87171}
+
+/* ── MAIN ── */
+.main{flex:1;margin-left:250px;min-height:100vh;background:var(--bg)}
+.page-header{padding:var(--space-lg) var(--space-xl);border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px)}
+.page-header h2{font-size:1.15rem;font-weight:600}
+.page-header .subtitle{font-size:.75rem;color:var(--muted);margin-top:2px}
+.page-header-right{display:flex;align-items:center;gap:var(--space-md)}
+.user-pill{display:flex;align-items:center;gap:var(--space-sm);background:var(--card);border:1px solid var(--border);border-radius:20px;padding:.3rem .8rem .3rem .4rem;font-size:.78rem;color:var(--text-secondary)}
+.user-pill .avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff}
+.content{padding:var(--space-xl)}
+.tab{display:none}.tab.active{display:block}
+
+/* ── CARDS ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-md);margin-bottom:var(--space-xl)}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-lg);position:relative;overflow:hidden;transition:var(--transition)}
+.stat-card:hover{border-color:var(--border-light);transform:translateY(-1px);box-shadow:var(--shadow)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.stat-card.c-green::before{background:var(--green)}.stat-card.c-red::before{background:var(--red)}
+.stat-card.c-blue::before{background:var(--blue)}.stat-card.c-yellow::before{background:var(--yellow)}
+.stat-card.c-accent::before{background:var(--accent)}.stat-card.c-cyan::before{background:var(--cyan)}
+.stat-card .card-icon{font-size:1.4rem;margin-bottom:var(--space-sm)}
+.stat-card .label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.stat-card .value{font-size:1.6rem;font-weight:700;margin-top:var(--space-xs);line-height:1.2}
+
+/* ── TABLES ── */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow)}
+.table-wrap table{width:100%;border-collapse:collapse;font-size:.82rem}
+.table-wrap th{text-align:left;padding:.7rem 1rem;background:var(--bg2);color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600;position:sticky;top:0;border-bottom:1px solid var(--border)}
+.table-wrap td{padding:.65rem 1rem;border-bottom:1px solid var(--border)}
+.table-wrap tr:last-child td{border-bottom:none}
+.table-wrap tr:hover td{background:var(--card-hover)}
+.table-wrap tr:nth-child(even) td{background:rgba(255,255,255,.01)}
+.empty-state{padding:3rem;text-align:center;color:var(--muted)}
+.empty-state .empty-icon{font-size:2.5rem;margin-bottom:var(--space-md);opacity:.5}
+.empty-state p{font-size:.85rem;margin-bottom:var(--space-md)}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:.2rem .6rem;border-radius:9999px;font-size:.68rem;font-weight:600}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.badge.green{background:var(--green-bg);color:var(--green)}.badge.green::before{background:var(--green)}
+.badge.red{background:var(--red-bg);color:var(--red)}.badge.red::before{background:var(--red)}
+.badge.yellow{background:var(--yellow-bg);color:var(--yellow)}.badge.yellow::before{background:var(--yellow)}
+.badge.purple{background:var(--accent-glow);color:var(--accent-light)}.badge.purple::before{background:var(--accent)}
+.badge.blue{background:var(--blue-bg);color:var(--blue)}.badge.blue::before{background:var(--blue)}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:.5rem 1rem;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:.8rem;font-weight:550;transition:var(--transition);text-decoration:none}
+.btn:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff}
+.btn-primary:hover{background:linear-gradient(135deg,var(--accent-light),var(--accent))}
+.btn-danger{background:var(--red);color:#fff}
+.btn-success{background:var(--green);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-secondary)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent-light);background:var(--accent-glow)}
+.btn-sm{padding:.35rem .7rem;font-size:.72rem}
+.btn-ghost{background:transparent;color:var(--text-secondary);padding:.3rem .5rem}.btn-ghost:hover{color:var(--text);background:var(--accent-glow);box-shadow:none}
+.toolbar{display:flex;align-items:center;gap:var(--space-sm);margin-bottom:var(--space-lg);flex-wrap:wrap}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:0;width:95%;max-width:540px;max-height:85vh;overflow:hidden;box-shadow:var(--shadow-lg);animation:modalIn .2s ease-out}
+@keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.modal-header{padding:var(--space-lg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h4{font-size:1rem;font-weight:600;color:var(--text)}
+.modal-header .close-btn{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px;border-radius:4px}
+.modal-header .close-btn:hover{color:var(--text);background:var(--accent-glow)}
+.modal-body{padding:var(--space-lg);overflow-y:auto;max-height:calc(85vh - 140px)}
+.modal-footer{padding:var(--space-md) var(--space-lg);border-top:1px solid var(--border);display:flex;gap:var(--space-sm);justify-content:flex-end}
+.form-group{margin-bottom:var(--space-md)}
+.form-group label{display:block;font-size:.78rem;color:var(--text-secondary);margin-bottom:var(--space-xs);font-weight:500}
+.form-group .helper{font-size:.68rem;color:var(--muted);margin-top:3px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:.6rem .8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-size:.85rem;transition:var(--transition)}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.form-group textarea{min-height:80px;resize:vertical;font-family:'JetBrains Mono',monospace,system-ui;font-size:.8rem}
+
+/* ── TOAST ── */
+.toast-container{position:fixed;top:var(--space-lg);right:var(--space-lg);z-index:200;display:flex;flex-direction:column;gap:var(--space-sm)}
+.toast{padding:.7rem 1rem;border-radius:var(--radius-md);font-size:.82rem;display:flex;align-items:center;gap:var(--space-sm);box-shadow:var(--shadow-lg);animation:toastIn .3s ease-out;min-width:280px;border:1px solid}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast-success{background:#0a2818;color:var(--green);border-color:rgba(34,197,94,.3)}
+.toast-error{background:#2a0a0a;color:var(--red);border-color:rgba(239,68,68,.3)}
+.toast-info{background:#0a1a2e;color:var(--blue);border-color:rgba(59,130,246,.3)}
+
+.key-display{background:var(--bg);border:1px solid var(--accent);border-radius:var(--radius-md);padding:.8rem;font-family:monospace;font-size:.85rem;word-break:break-all;margin:var(--space-sm) 0;color:var(--accent-light)}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-md);font-size:.78rem;overflow:auto;max-height:400px;line-height:1.5}
+.section-title{font-size:1rem;font-weight:600;margin:var(--space-xl) 0 var(--space-md);display:flex;align-items:center;gap:var(--space-sm)}
+</style></head><body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+<div class="sidebar-brand">
+  <h1>LLM Sentinel</h1>
+  <span>Enterprise Gateway</span>
+</div>
+<nav class="sidebar-nav">
+  <a href="#" onclick="showTab('dashboard')" class="active" id="nav-dashboard"><span class="icon">&#x1F4CA;</span>Dashboard</a>
+  <a href="#" onclick="showTab('clients')" id="nav-clients"><span class="icon">&#x1F465;</span>Clients</a>
+  <a href="#" onclick="showTab('keys')" id="nav-keys"><span class="icon">&#x1F511;</span>API Key Pools</a>
+  <a href="#" onclick="showTab('providers')" id="nav-providers"><span class="icon">&#x1F310;</span>Providers</a>
+  <div class="divider"></div>
+  <a href="#" onclick="showTab('aliases')" id="nav-aliases"><span class="icon">&#x1F517;</span>Aliases</a>
+  <a href="#" onclick="showTab('policies')" id="nav-policies"><span class="icon">&#x1F6E1;</span>Policies</a>
+  <a href="#" onclick="showTab('filtering')" id="nav-filtering"><span class="icon">&#x1F50D;</span>Filtering</a>
+  <a href="#" onclick="showTab('costs')" id="nav-costs"><span class="icon">&#x1F4B0;</span>Costs</a>
+  <div class="divider"></div>
+  <a href="#" onclick="showTab('alerts')" id="nav-alerts"><span class="icon">&#x1F6A8;</span>Alerts</a>
+  <a href="#" onclick="showTab('breakers')" id="nav-breakers"><span class="icon">&#x26A1;</span>Circuit Breakers</a>
+  <a href="#" onclick="showTab('security')" id="nav-security"><span class="icon">&#x1F6E1;</span>Security</a>
+  <a href="#" onclick="showTab('audit')" id="nav-audit"><span class="icon">&#x1F4CB;</span>Audit Log</a>
+  <div class="divider"></div>
+  <a href="#" onclick="showTab('requestlogs')" id="nav-requestlogs"><span class="icon">&#x1F4C4;</span>Request Logs</a>
+  <a href="#" onclick="showTab('cache')" id="nav-cache"><span class="icon">&#x1F4BE;</span>Cache</a>
+  <a href="#" onclick="showTab('queue')" id="nav-queue"><span class="icon">&#x1F4E5;</span>Queue</a>
+  <a href="#" onclick="showTab('diagnostics')" id="nav-diagnostics"><span class="icon">&#x1FA7A;</span>Diagnostics</a>
+</nav>
+<div class="sidebar-footer">
+  <a href="#" onclick="doLogout()">&#x1F6AA; Logout</a>
+</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+<div class="page-header">
+  <div><h2 id="page-title">Dashboard</h2><div class="subtitle" id="page-subtitle">Real-time system overview</div></div>
+  <div class="page-header-right">
+    <span id="ws-badge" style="font-size:.72rem;color:var(--muted)"><span id="ws-status" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:4px"></span>Disconnected</span>
+    <div class="user-pill"><div class="avatar">A</div><span>Admin</span></div>
+  </div>
+</div>
+
+<div class="content">
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ── DASHBOARD ── -->
+<div class="tab active" id="tab-dashboard">
+<div class="cards" id="dash-cards"></div>
+<div class="section-title">&#x1F4E1; Live Sessions</div>
+<div class="table-wrap">
+<table><thead><tr><th>Client</th><th>Provider</th><th>Model</th><th>Status</th><th>Elapsed</th><th>Tokens Out</th><th>IP</th></tr></thead>
+<tbody id="sessions-tbody"><tr><td colspan="7" class="empty-state"><div class="empty-icon">&#x1F4E1;</div><p>No active sessions</p></td></tr></tbody></table>
+</div></div>
+
+<!-- ── CLIENTS ── -->
+<div class="tab" id="tab-clients">
+<div class="toolbar"><button class="btn btn-primary" onclick="openClientModal()">&#x2B; New Client</button></div>
+<div id="clients-table"></div>
+</div>
+
+<!-- ── API KEY POOLS ── -->
+<div class="tab" id="tab-keys">
+<div class="toolbar">
+<select id="key-provider-select" style="padding:.5rem .8rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem">
+<option value="anthropic">Anthropic</option><option value="openai">OpenAI</option>
+<option value="azure_openai">Azure OpenAI</option><option value="gemini">Gemini</option>
+<option value="groq">Groq</option><option value="mistral">Mistral</option><option value="ollama">Ollama</option>
+</select>
+<input id="key-input" placeholder="Paste your API key here..." style="flex:1;padding:.5rem .8rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem">
+<button class="btn btn-primary" onclick="addApiKey()">&#x2B; Add Key</button>
+</div>
+<div id="keys-table"></div>
+</div>
+
+<!-- ── PROVIDERS ── -->
+<div class="tab" id="tab-providers">
+<div class="toolbar"><button class="btn btn-primary" onclick="openProviderModal()">&#x2B; Add Provider</button></div>
+<div id="providers-table"></div>
+</div>
+
+<!-- ── ALIASES ── -->
+<div class="tab" id="tab-aliases">
+<div class="toolbar"><button class="btn btn-primary" onclick="openAliasModal()">&#x2B; New Alias</button></div>
+<div id="aliases-table"></div>
+</div>
+
+<!-- ── POLICIES ── -->
+<div class="tab" id="tab-policies">
+<div class="toolbar"><button class="btn btn-primary" onclick="openPolicyModal()">&#x2B; New Policy</button></div>
+<div id="policies-table"></div>
+</div>
+
+<!-- ── FILTERING ── -->
+<div class="tab" id="tab-filtering">
+<div class="toolbar"><button class="btn btn-primary" onclick="openFilterModal()">&#x2B; New Pattern</button></div>
+<div id="filtering-table"></div>
+</div>
+
+<!-- ── COSTS ── -->
+<div class="tab" id="tab-costs">
+<div class="toolbar"><button class="btn btn-primary" onclick="openCostModal()">&#x2B; New Rate</button></div>
+<div id="costs-table"></div>
+<div class="section-title">&#x1F4C8; Cost Summary</div>
+<div id="costs-summary"></div>
+</div>
+
+<!-- ── ALERTS ── -->
+<div class="tab" id="tab-alerts">
+<div class="toolbar"><button class="btn btn-primary" onclick="openAlertModal()">&#x2B; New Alert</button></div>
+<div id="alerts-table"></div>
+<div class="section-title">&#x1F4DC; Alert History</div>
+<div id="alerts-history"></div>
+</div>
+
+<!-- ── CIRCUIT BREAKERS ── -->
+<div class="tab" id="tab-breakers"><div id="breakers-content"></div></div>
+
+<!-- ── SECURITY ── -->
+<div class="tab" id="tab-security"><div id="security-content"></div></div>
+
+<!-- ── AUDIT LOG ── -->
+<div class="tab" id="tab-audit"><div id="audit-table"></div></div>
+
+<!-- ── REQUEST LOGS ── -->
+<div class="tab" id="tab-requestlogs">
+<div class="toolbar"><button class="btn btn-outline" onclick="cleanupLogs()">&#x1F5D1; Cleanup Old Logs</button></div>
+<div id="requestlogs-table"></div>
+</div>
+
+<!-- ── CACHE ── -->
+<div class="tab" id="tab-cache"><div id="cache-content"></div></div>
+
+<!-- ── QUEUE ── -->
+<div class="tab" id="tab-queue"><div id="queue-content"></div></div>
+
+<!-- ── DIAGNOSTICS ── -->
+<div class="tab" id="tab-diagnostics"><div id="diagnostics-content"></div></div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+<div class="modal" id="modal-container"></div>
+</div>
+
+<script>
+const TOKEN=(document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('ws_token='))?.split('=').slice(1).join('=')||'');
+const H={'Content-Type':'application/json','Authorization':'Bearer '+TOKEN};
+
+async function api(path,opts={}){
+  const r=await fetch(path,{headers:H,...opts});
+  if(r.status===401){window.location='/admin/login';return null;}
+  return r.json().catch(()=>null);
+}
+
+// Toast
+function toast(msg,type='success'){
+  const c=document.getElementById('toast-container');
+  const t=document.createElement('div');
+  const icons={success:'&#x2705;',error:'&#x274C;',info:'&#x2139;&#xFE0F;'};
+  t.className='toast toast-'+type;
+  t.innerHTML=`<span>${icons[type]||''}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(20px)';setTimeout(()=>t.remove(),300);},4000);
+}
+
+// Modal
+function openModal(header,body,footer){
+  document.getElementById('modal-container').innerHTML=
+    `<div class="modal-header"><h4>${header}</h4><button class="close-btn" onclick="closeModal()">&#x2715;</button></div>
+     <div class="modal-body">${body}</div>
+     <div class="modal-footer">${footer}</div>`;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}
+
+// Tab titles
+const TAB_META={
+  dashboard:['Dashboard','Real-time system overview'],
+  clients:['Clients','Manage applications and their API keys'],
+  keys:['API Key Pools','Provider API keys encrypted in database'],
+  providers:['Providers','Configure LLM provider endpoints'],
+  aliases:['Model Aliases','Short names mapping to provider models'],
+  policies:['Content Policies','Guardrails and content filtering rules'],
+  filtering:['Filter Patterns','Regex patterns for data masking'],
+  costs:['Cost Management','Track and manage LLM usage costs'],
+  alerts:['Alert Configurations','Webhook notifications for system events'],
+  breakers:['Circuit Breakers','Provider health and failover status'],
+  security:['Security','Encryption, IP bans, and key rotation'],
+  audit:['Audit Log','Security event history'],
+  requestlogs:['Request Logs','Detailed request and response logs'],
+  cache:['Cache','Semantic response caching'],
+  queue:['Queue Status','Request processing queue'],
+  diagnostics:['Diagnostics','Health checks, backups, and exports'],
+};
+
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-nav a').forEach(a=>a.classList.remove('active'));
+  document.getElementById('tab-'+id)?.classList.add('active');
+  document.getElementById('nav-'+id)?.classList.add('active');
+  const m=TAB_META[id]||[id,''];
+  document.getElementById('page-title').textContent=m[0];
+  document.getElementById('page-subtitle').textContent=m[1];
+  loadTab(id);
+}
+
+function doLogout(){document.cookie='access_token=;max-age=0;path=/';document.cookie='ws_token=;max-age=0;path=/';window.location='/admin/login';}
+
+// ── TAB LOADERS ──
+
+async function loadTab(id){
+  const L={dashboard:loadDashboard,clients:loadClients,keys:loadKeys,providers:loadProviders,
+    aliases:loadAliases,policies:loadPolicies,filtering:loadFiltering,costs:loadCosts,
+    alerts:loadAlerts,breakers:loadBreakers,security:loadSecurity,audit:loadAudit,
+    requestlogs:loadRequestLogs,cache:loadCache,queue:loadQueue,diagnostics:loadDiagnostics};
+  if(L[id]) await L[id]();
+}
+
+function tw(html){return `<div class="table-wrap">${html}</div>`;}  // table wrapper
+function emptyState(icon,msg,btn=''){return `<div class="empty-state"><div class="empty-icon">${icon}</div><p>${msg}</p>${btn}</div>`;}
+
+// ── DASHBOARD ──
+
+async function loadDashboard(){
+  const [s,cs,qs]=await Promise.all([api('/v1/stats'),api('/v1/cache/stats'),api('/v1/queue/status')]);
+  document.getElementById('dash-cards').innerHTML=`
+    <div class="stat-card c-accent"><div class="card-icon">&#x1F4E8;</div><div class="label">Total Requests</div><div class="value">${(s?.total_requests||0).toLocaleString()}</div></div>
+    <div class="stat-card c-blue"><div class="card-icon">&#x2B06;</div><div class="label">Input Tokens</div><div class="value">${(s?.total_input_tokens||0).toLocaleString()}</div></div>
+    <div class="stat-card c-cyan"><div class="card-icon">&#x2B07;</div><div class="label">Output Tokens</div><div class="value">${(s?.total_output_tokens||0).toLocaleString()}</div></div>
+    <div class="stat-card c-red"><div class="card-icon">&#x26A0;</div><div class="label">Errors</div><div class="value">${s?.errors||0}</div></div>
+    <div class="stat-card c-green"><div class="card-icon">&#x26A1;</div><div class="label">Cache Hit Rate</div><div class="value">${cs?.hit_rate_percent||0}%</div></div>
+    <div class="stat-card c-yellow"><div class="card-icon">&#x1F4E5;</div><div class="label">Queue</div><div class="value">${qs?.processing||0} / ${qs?.max_concurrent||0}</div></div>
+    <div class="stat-card c-blue"><div class="card-icon">&#x23F1;</div><div class="label">Uptime</div><div class="value">${Math.round(s?.uptime_seconds||0)}s</div></div>`;
+}
+
+// ── CLIENTS ──
+
+async function loadClients(){
+  const data=await api('/v1/clients');
+  if(!Array.isArray(data)||!data.length){document.getElementById('clients-table').innerHTML=emptyState('&#x1F465;','No clients yet.','<button class="btn btn-primary" onclick="openClientModal()">&#x2B; Create your first client</button>');return;}
+  let rows=data.map(c=>`<tr>
+    <td><strong>${c.name}</strong><br><span style="font-size:.68rem;color:var(--muted)">${c.id.slice(0,8)}...</span></td>
+    <td>${(c.roles||[]).map(r=>`<span class="badge purple">${r}</span>`).join(' ')}</td>
+    <td>${c.priority}</td><td>${c.rate_limit_per_minute}</td>
+    <td>${c.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
+    <td style="font-size:.72rem;color:var(--muted)">${c.last_used_at?new Date(c.last_used_at).toLocaleString():'Never'}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" onclick="viewQuota('${c.id}')">Quota</button>
+      <button class="btn btn-ghost btn-sm" onclick="regenKey('${c.id}','${c.name}')">&#x1F504; Regen</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteClient('${c.id}','${c.name}')">&#x1F5D1;</button>
+    </div></td></tr>`).join('');
+  document.getElementById('clients-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Roles</th><th>Priority</th><th>RPM</th><th>Status</th><th>Last Used</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+
+function openClientModal(){
+  openModal('Create New Client',
+    `<div class="form-group"><label>Name</label><input id="f-client-name" placeholder="my-app"><div class="helper">A descriptive name for this application</div></div>
+     <div class="form-group"><label>Permissions</label><input id="f-client-perms" value="*" placeholder="chat,models:list,health"><div class="helper">Comma-separated. Use * for full access</div></div>
+     <div class="form-group"><label>Rate Limit (RPM)</label><input id="f-client-rpm" type="number" value="60"></div>
+     <div class="form-group"><label>Daily Token Quota</label><input id="f-client-quota" type="number" value="0"><div class="helper">0 = unlimited</div></div>
+     <div class="form-group"><label>Priority</label><input id="f-client-prio" type="number" value="5" min="1" max="10"><div class="helper">1 = highest, 10 = lowest</div></div>
+     <div class="form-group"><label>Description</label><input id="f-client-desc" placeholder="Optional"></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createClient()">&#x2B; Create Client</button>`);
+}
+
+async function createClient(){
+  const perms=document.getElementById('f-client-perms').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body={name:document.getElementById('f-client-name').value,permissions:perms,
+    rate_limit_per_minute:parseInt(document.getElementById('f-client-rpm').value)||60,
+    daily_token_quota:parseInt(document.getElementById('f-client-quota').value)||0,
+    priority:parseInt(document.getElementById('f-client-prio').value)||5,
+    description:document.getElementById('f-client-desc').value||null};
+  const r=await api('/v1/clients',{method:'POST',body:JSON.stringify(body)});
+  closeModal();
+  if(r?.api_key){
+    openModal('Client Created &#x2705;',
+      `<p>Client <strong>${r.client.name}</strong> created successfully.</p>
+       <p style="margin-top:var(--space-sm);font-size:.82rem;color:var(--yellow)">&#x26A0; Save this API key now — it won't be shown again!</p>
+       <div class="key-display">${r.api_key}</div>`,
+      `<button class="btn btn-primary" onclick="closeModal();loadClients()">Done</button>`);
+  } else toast('Error: '+(r?.detail||JSON.stringify(r)),'error');
+}
+
+async function regenKey(id,name){if(!confirm(`Regenerate API key for "${name}"?`))return;const r=await api(`/v1/clients/${id}/regenerate-key`,{method:'POST'});if(r?.api_key){openModal('New API Key',`<p>New key for <strong>${name}</strong>:</p><div class="key-display">${r.api_key}</div>`,`<button class="btn btn-primary" onclick="closeModal()">Done</button>`);}}
+async function deleteClient(id,name){if(!confirm(`Delete "${name}"?`))return;await api(`/v1/clients/${id}`,{method:'DELETE'});toast(`Client "${name}" deleted`);loadClients();}
+async function viewQuota(id){const q=await api(`/v1/clients/${id}/quota`);openModal('Quota Usage',`<div class="cards"><div class="stat-card c-blue"><div class="label">Input Tokens</div><div class="value">${q?.input_tokens||0}</div></div><div class="stat-card c-cyan"><div class="label">Output Tokens</div><div class="value">${q?.output_tokens||0}</div></div><div class="stat-card c-yellow"><div class="label">Used</div><div class="value">${q?.percent_used||0}%</div></div></div><p style="color:var(--muted);font-size:.82rem">Date: ${q?.date} | Quota: ${q?.daily_quota||'Unlimited'}</p>`,`<button class="btn btn-outline" onclick="closeModal()">Close</button>`);}
+
+// ── API KEYS ──
+
+async function loadKeys(){
+  const providers=['anthropic','openai','azure_openai','gemini','groq','mistral','ollama'];
+  let html='';
+  for(const p of providers){
+    const keys=await api('/v1/api-keys/'+p);if(!Array.isArray(keys))continue;
+    html+=`<div class="section-title" style="margin-top:${html?'var(--space-lg)':'0'}">&#x1F511; ${p} <span class="badge blue">${keys.length}</span></div>`;
+    if(!keys.length){html+=`<p style="color:var(--muted);font-size:.82rem;margin-bottom:var(--space-md)">No keys configured</p>`;continue;}
+    let rows=keys.map((k,i)=>`<tr><td style="font-family:monospace;font-size:.78rem;color:var(--text-secondary)">${k.key_masked}</td><td>${k.usage_count}</td><td>${k.error_count}</td>
+      <td>${k.is_healthy?'<span class="badge green">Healthy</span>':'<span class="badge red">Unhealthy</span>'}</td>
+      <td><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="removeKey('${p}',${i})">&#x1F5D1;</button></td></tr>`).join('');
+    html+=tw(`<table><thead><tr><th>Key</th><th>Usage</th><th>Errors</th><th>Health</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+  }
+  document.getElementById('keys-table').innerHTML=html||emptyState('&#x1F511;','No API keys configured yet.');
+}
+async function addApiKey(){const p=document.getElementById('key-provider-select').value;const k=document.getElementById('key-input').value.trim();if(!k){toast('Please paste an API key','error');return;}const r=await api(`/v1/api-keys/${p}`,{method:'POST',body:JSON.stringify({key:k})});document.getElementById('key-input').value='';if(r?.provider){toast(`Key added to ${p}`);loadKeys();}else toast('Error adding key','error');}
+async function removeKey(p,i){if(!confirm(`Remove key #${i} from ${p}?`))return;await api(`/v1/api-keys/${p}/${i}`,{method:'DELETE'});toast('Key removed');loadKeys();}
+
+// ── PROVIDERS ──
+
+async function loadProviders(){
+  const data=await api('/v1/providers');
+  if(!Array.isArray(data)||!data.length){document.getElementById('providers-table').innerHTML=emptyState('&#x1F310;','No custom providers configured.','<button class="btn btn-primary" onclick="openProviderModal()">&#x2B; Add Provider</button>');return;}
+  let rows=data.map(p=>`<tr><td><strong>${p.name}</strong></td><td><span class="badge blue">${p.provider_type}</span></td><td style="font-size:.75rem;color:var(--muted)">${p.base_url||'-'}</td>
+    <td>${p.default_model}</td><td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
+    <td><div style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" onclick="testProvider('${p.id}')">&#x26A1; Test</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteProvider('${p.id}')">&#x1F5D1;</button></div></td></tr>`).join('');
+  document.getElementById('providers-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Type</th><th>Base URL</th><th>Default Model</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function openProviderModal(){openModal('Add Custom Provider',`<div class="form-group"><label>Name</label><input id="f-prov-name" placeholder="my-vllm"></div><div class="form-group"><label>Type</label><select id="f-prov-type"><option value="openai_compatible">OpenAI Compatible</option><option value="ollama">Ollama</option><option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="azure_openai">Azure OpenAI</option><option value="gemini">Gemini</option></select><div class="helper">Use "OpenAI Compatible" for vLLM, LiteLLM, LocalAI, etc.</div></div><div class="form-group"><label>Base URL</label><input id="f-prov-url" placeholder="http://gpu-server:8000/v1"></div><div class="form-group"><label>Default Model</label><input id="f-prov-model" placeholder="meta/llama3"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createProvider()">&#x2B; Create</button>`);}
+async function createProvider(){const body={name:document.getElementById('f-prov-name').value,provider_type:document.getElementById('f-prov-type').value,base_url:document.getElementById('f-prov-url').value,default_model:document.getElementById('f-prov-model').value};const r=await api('/v1/providers',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Provider created');loadProviders();}else toast('Error','error');}
+async function testProvider(id){const r=await api(`/v1/providers/${id}/test`,{method:'POST'});openModal('Connection Test',`<pre>${JSON.stringify(r,null,2)}</pre>`,`<button class="btn btn-outline" onclick="closeModal()">Close</button>`);}
+async function deleteProvider(id){if(!confirm('Delete provider?'))return;await api(`/v1/providers/${id}`,{method:'DELETE'});toast('Provider deleted');loadProviders();}
+
+// ── ALIASES ──
+
+async function loadAliases(){
+  const data=await api('/v1/aliases');if(!Array.isArray(data))return;
+  let rows=data.map(a=>`<tr><td><strong>${a.alias}</strong></td><td>${a.provider}</td><td>${a.model}</td><td>${a.usage_count}</td><td>${a.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td><td><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteAlias('${a.id}')">&#x1F5D1;</button></td></tr>`).join('');
+  document.getElementById('aliases-table').innerHTML=tw(`<table><thead><tr><th>Alias</th><th>Provider</th><th>Model</th><th>Usage</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function openAliasModal(){openModal('Create Model Alias',`<div class="form-group"><label>Alias</label><input id="f-alias-name" placeholder="my-fast"><div class="helper">Lowercase slug: letters, numbers, hyphens only</div></div><div class="form-group"><label>Provider</label><input id="f-alias-prov" placeholder="anthropic"></div><div class="form-group"><label>Model</label><input id="f-alias-model" placeholder="claude-haiku-4-5-20251001"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createAlias()">&#x2B; Create</button>`);}
+async function createAlias(){const body={alias:document.getElementById('f-alias-name').value,provider:document.getElementById('f-alias-prov').value,model:document.getElementById('f-alias-model').value};const r=await api('/v1/aliases',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Alias created');loadAliases();}else toast('Error: '+(r?.detail||''),'error');}
+async function deleteAlias(id){if(!confirm('Delete alias?'))return;await api(`/v1/aliases/${id}`,{method:'DELETE'});toast('Alias deleted');loadAliases();}
+
+// ── POLICIES ──
+
+async function loadPolicies(){
+  const data=await api('/v1/policies');if(!Array.isArray(data)||!data.length){document.getElementById('policies-table').innerHTML=emptyState('&#x1F6E1;','No content policies configured.','<button class="btn btn-primary" onclick="openPolicyModal()">&#x2B; Create Policy</button>');return;}
+  let rows=data.map(p=>`<tr><td><strong>${p.name}</strong></td><td><span class="badge purple">${p.policy_type}</span></td><td>${p.priority}</td><td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td><td><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deletePolicy('${p.id}')">&#x1F5D1;</button></td></tr>`).join('');
+  document.getElementById('policies-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Type</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function openPolicyModal(){openModal('Create Content Policy',`<div class="form-group"><label>Name</label><input id="f-pol-name" placeholder="block-sensitive-topics"></div><div class="form-group"><label>Type</label><select id="f-pol-type"><option value="system_prompt_inject">System Prompt Inject</option><option value="system_prompt_enforce">System Prompt Enforce</option><option value="topic_block">Topic Block</option><option value="output_filter">Output Filter</option><option value="max_output_tokens">Max Output Tokens</option><option value="model_restrict">Model Restrict</option></select></div><div class="form-group"><label>Config (JSON)</label><textarea id="f-pol-config">{"blocked_keywords": ["example"], "action": "reject", "message": "Blocked."}</textarea></div><div class="form-group"><label>Priority</label><input id="f-pol-prio" type="number" value="50"><div class="helper">Lower number = runs first</div></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createPolicy()">&#x2B; Create</button>`);}
+async function createPolicy(){let config;try{config=JSON.parse(document.getElementById('f-pol-config').value);}catch(e){toast('Invalid JSON config','error');return;}const body={name:document.getElementById('f-pol-name').value,policy_type:document.getElementById('f-pol-type').value,config_json:config,priority:parseInt(document.getElementById('f-pol-prio').value)||50};const r=await api('/v1/policies',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Policy created');loadPolicies();}else toast('Error','error');}
+async function deletePolicy(id){if(!confirm('Delete policy?'))return;await api(`/v1/policies/${id}`,{method:'DELETE'});toast('Deleted');loadPolicies();}
+
+// ── FILTERING ──
+
+async function loadFiltering(){
+  const data=await api('/v1/filter-patterns');if(!Array.isArray(data))return;
+  let rows=data.map(p=>`<tr><td>${p.name}</td><td style="font-family:monospace;font-size:.72rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)">${p.pattern}</td><td><code>${p.replacement}</code></td><td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Off</span>'}</td><td>${p.is_builtin?'<span class="badge blue">Built-in</span>':'Custom'}</td><td>${p.is_builtin?'':'<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteFilter(\''+p.id+'\')">&#x1F5D1;</button>'}</td></tr>`).join('');
+  document.getElementById('filtering-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Pattern</th><th>Replacement</th><th>Status</th><th>Type</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function openFilterModal(){openModal('Create Filter Pattern',`<div class="form-group"><label>Name</label><input id="f-filt-name" placeholder="My Custom Pattern"></div><div class="form-group"><label>Regex Pattern</label><input id="f-filt-pattern" placeholder="(?i)secret\\s*[:=]\\s*\\S+"></div><div class="form-group"><label>Replacement</label><input id="f-filt-repl" value="[REDACTED]"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createFilter()">&#x2B; Create</button>`);}
+async function createFilter(){const body={name:document.getElementById('f-filt-name').value,pattern:document.getElementById('f-filt-pattern').value,replacement:document.getElementById('f-filt-repl').value};const r=await api('/v1/filter-patterns',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Pattern created');loadFiltering();}else toast('Error','error');}
+async function deleteFilter(id){if(!confirm('Delete?'))return;await api(`/v1/filter-patterns/${id}`,{method:'DELETE'});toast('Deleted');loadFiltering();}
+
+// ── COSTS ──
+
+async function loadCosts(){
+  const data=await api('/v1/costs/rates');if(!Array.isArray(data))return;
+  let rows=data.map(r=>`<tr><td>${r.provider}</td><td>${r.model}</td><td>$${r.input_cost_per_1k}</td><td>$${r.output_cost_per_1k}</td><td><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deactivateRate('${r.id}')">&#x1F5D1;</button></td></tr>`).join('');
+  document.getElementById('costs-table').innerHTML=tw(`<table><thead><tr><th>Provider</th><th>Model</th><th>Input $/1K</th><th>Output $/1K</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+  const s=await api('/v1/costs/summary');
+  document.getElementById('costs-summary').innerHTML=`<div class="cards"><div class="stat-card c-green"><div class="card-icon">&#x1F4B5;</div><div class="label">Total Cost</div><div class="value">$${(s?.total_cost_usd||0).toFixed(4)}</div></div><div class="stat-card c-accent"><div class="card-icon">&#x1F4E8;</div><div class="label">Requests</div><div class="value">${s?.request_count||0}</div></div><div class="stat-card c-blue"><div class="card-icon">&#x1F4AC;</div><div class="label">Total Tokens</div><div class="value">${((s?.total_input_tokens||0)+(s?.total_output_tokens||0)).toLocaleString()}</div></div></div>`;
+}
+function openCostModal(){openModal('Add Cost Rate',`<div class="form-group"><label>Provider</label><input id="f-cost-prov" placeholder="anthropic"></div><div class="form-group"><label>Model</label><input id="f-cost-model" placeholder="claude-sonnet-4-6"></div><div class="form-group"><label>Input Cost per 1K tokens ($)</label><input id="f-cost-in" type="number" step="0.0001" value="0.003"></div><div class="form-group"><label>Output Cost per 1K tokens ($)</label><input id="f-cost-out" type="number" step="0.0001" value="0.015"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createCostRate()">&#x2B; Add Rate</button>`);}
+async function createCostRate(){const body={provider:document.getElementById('f-cost-prov').value,model:document.getElementById('f-cost-model').value,input_cost_per_1k:parseFloat(document.getElementById('f-cost-in').value),output_cost_per_1k:parseFloat(document.getElementById('f-cost-out').value)};const r=await api('/v1/costs/rates',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Rate added');loadCosts();}else toast('Error','error');}
+async function deactivateRate(id){await api(`/v1/costs/rates/${id}`,{method:'DELETE'});toast('Rate removed');loadCosts();}
+
+// ── ALERTS ──
+
+async function loadAlerts(){
+  const configs=await api('/v1/alerts/configs');
+  if(Array.isArray(configs)&&configs.length){
+    let rows=configs.map(c=>`<tr><td>${c.event_type}</td><td style="font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)">${c.webhook_url}</td><td><span class="badge yellow">${c.min_severity}</span></td><td>${c.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Off</span>'}</td><td><div style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" onclick="testAlert('${c.id}')">&#x26A1; Test</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteAlert('${c.id}')">&#x1F5D1;</button></div></td></tr>`).join('');
+    document.getElementById('alerts-table').innerHTML=tw(`<table><thead><tr><th>Event</th><th>Webhook</th><th>Severity</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
+  } else document.getElementById('alerts-table').innerHTML=emptyState('&#x1F6A8;','No alert configs.','<button class="btn btn-primary" onclick="openAlertModal()">&#x2B; New Alert</button>');
+  const history=await api('/v1/alerts/history?limit=20');
+  if(Array.isArray(history)&&history.length){
+    let hrows=history.map(h=>`<tr><td style="font-size:.72rem;color:var(--muted)">${new Date(h.sent_at).toLocaleString()}</td><td>${h.event_type}</td><td><span class="badge ${h.severity==='critical'?'red':h.severity==='warning'?'yellow':'blue'}">${h.severity}</span></td><td style="font-size:.78rem">${h.message}</td><td>${h.success?'<span class="badge green">OK</span>':'<span class="badge red">Failed</span>'}</td></tr>`).join('');
+    document.getElementById('alerts-history').innerHTML=tw(`<table><thead><tr><th>Time</th><th>Event</th><th>Severity</th><th>Message</th><th>Status</th></tr></thead><tbody>${hrows}</tbody></table>`);
+  } else document.getElementById('alerts-history').innerHTML='<p style="color:var(--muted);font-size:.82rem">No alert history yet.</p>';
+}
+function openAlertModal(){openModal('Create Alert Config',`<div class="form-group"><label>Event Type</label><select id="f-alert-event"><option value="*">All Events</option><option value="circuit_open">Circuit Open</option><option value="no_healthy_keys">No Healthy Keys</option><option value="quota_breach">Quota Breach</option><option value="system_error">System Error</option><option value="ip_ban">IP Ban</option></select></div><div class="form-group"><label>Webhook URL</label><input id="f-alert-url" placeholder="https://hooks.slack.com/..."></div><div class="form-group"><label>Min Severity</label><select id="f-alert-sev"><option value="info">Info</option><option value="warning" selected>Warning</option><option value="critical">Critical</option></select></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createAlert()">&#x2B; Create</button>`);}
+async function createAlert(){const body={event_type:document.getElementById('f-alert-event').value,webhook_url:document.getElementById('f-alert-url').value,min_severity:document.getElementById('f-alert-sev').value};const r=await api('/v1/alerts/configs',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Alert created');loadAlerts();}else toast('Error','error');}
+async function testAlert(id){const r=await api(`/v1/alerts/configs/${id}/test`,{method:'POST'});toast(r?.success?'Test ping sent':'Test failed','info');}
+async function deleteAlert(id){if(!confirm('Delete?'))return;await api(`/v1/alerts/configs/${id}`,{method:'DELETE'});toast('Deleted');loadAlerts();}
+
+// ── BREAKERS ──
+
+async function loadBreakers(){
+  const d=await api('/v1/circuit-breakers');const entries=Object.entries(d||{});
+  if(!entries.length){document.getElementById('breakers-content').innerHTML=emptyState('&#x26A1;','No circuit breakers active.');return;}
+  let rows=entries.map(([k,v])=>{const badge=v==='closed'?'green':v==='open'?'red':'yellow';const prov=k.split(':')[0];return `<tr><td style="font-family:monospace">${k}</td><td><span class="badge ${badge}">${v.toUpperCase()}</span></td><td><button class="btn btn-outline btn-sm" onclick="resetBreaker('${prov}')">&#x1F504; Reset</button></td></tr>`;}).join('');
+  document.getElementById('breakers-content').innerHTML=tw(`<table><thead><tr><th>Provider : Key</th><th>State</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+async function resetBreaker(p){await api(`/v1/circuit-breakers/${p}/reset`,{method:'POST'});toast('Reset');loadBreakers();}
+
+// ── SECURITY ──
+
+async function loadSecurity(){
+  const [rot,bans]=await Promise.all([api('/v1/admin/security/rotate-check'),api('/v1/admin/ip-bans')]);
+  let html=`<div class="section-title">&#x1F510; Key Encryption Status</div>
+    <div class="cards"><div class="stat-card c-blue"><div class="label">Total Keys</div><div class="value">${rot?.total_keys||0}</div></div><div class="stat-card c-green"><div class="label">Re-encrypted</div><div class="value">${rot?.re_encrypted||0}</div></div><div class="stat-card c-yellow"><div class="label">Pending</div><div class="value">${rot?.pending||0}</div></div></div>
+    <button class="btn btn-primary btn-sm" onclick="rotateNow()" style="margin-bottom:var(--space-xl)">&#x1F504; Rotate Now</button>
+    <div class="section-title">&#x1F6AB; IP Bans</div>`;
+  if(Array.isArray(bans)&&bans.length){
+    let rows=bans.map(b=>`<tr><td style="font-family:monospace">${b.ip}</td><td>${b.remaining_seconds}s</td><td><button class="btn btn-outline btn-sm" onclick="unbanIP('${b.ip}')">Unban</button></td></tr>`).join('');
+    html+=tw(`<table><thead><tr><th>IP Address</th><th>Remaining</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`);
+  } else html+='<p style="color:var(--muted);font-size:.82rem">No banned IPs</p>';
+  document.getElementById('security-content').innerHTML=html;
+}
+async function rotateNow(){const r=await api('/v1/admin/security/rotate-now',{method:'POST'});toast(`Re-encrypted: ${r?.re_encrypted||0} keys`);loadSecurity();}
+async function unbanIP(ip){await api(`/v1/admin/ip-ban/${ip}/unblock`,{method:'POST'});toast('Unbanned');loadSecurity();}
+
+// ── AUDIT ──
+
+async function loadAudit(){
+  const data=await api('/v1/admin/audit-logs?limit=100');if(!Array.isArray(data)||!data.length){document.getElementById('audit-table').innerHTML=emptyState('&#x1F4CB;','No audit logs yet.');return;}
+  let rows=data.map(a=>`<tr><td style="font-size:.72rem;color:var(--muted)">${a.timestamp?new Date(a.timestamp).toLocaleString():'-'}</td><td><span class="badge purple">${a.event_type}</span></td><td>${a.actor||'-'}</td><td>${a.target||'-'}</td><td>${a.success?'<span class="badge green">OK</span>':'<span class="badge red">Fail</span>'}</td></tr>`).join('');
+  document.getElementById('audit-table').innerHTML=tw(`<table><thead><tr><th>Time</th><th>Event</th><th>Actor</th><th>Target</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+
+// ── REQUEST LOGS ──
+
+async function loadRequestLogs(){
+  const data=await api('/v1/request-logs?limit=50');if(!Array.isArray(data)||!data.length){document.getElementById('requestlogs-table').innerHTML=emptyState('&#x1F4C4;','No request logs yet.');return;}
+  let rows=data.map(r=>`<tr><td style="font-size:.72rem;color:var(--muted)">${r.timestamp?new Date(r.timestamp).toLocaleString():'-'}</td><td>${r.provider||'-'}</td><td>${r.model||'-'}</td><td>${r.input_tokens} / ${r.output_tokens}</td><td>${r.cost_usd!=null?'$'+r.cost_usd.toFixed(5):'-'}</td><td>${r.duration_ms}ms</td><td><span class="badge ${r.status_code<400?'green':'red'}">${r.status_code}</span></td></tr>`).join('');
+  document.getElementById('requestlogs-table').innerHTML=tw(`<table><thead><tr><th>Time</th><th>Provider</th><th>Model</th><th>In / Out</th><th>Cost</th><th>Duration</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+async function cleanupLogs(){if(!confirm('Delete logs older than 30 days?'))return;const r=await api('/v1/request-logs/cleanup?older_than_days=30',{method:'DELETE'});toast(`Deleted ${r?.deleted||0} logs`);}
+
+// ── CACHE ──
+
+async function loadCache(){
+  const d=await api('/v1/cache/stats');
+  document.getElementById('cache-content').innerHTML=`
+    <div class="cards">
+      <div class="stat-card ${d?.enabled?'c-green':'c-red'}"><div class="card-icon">${d?.enabled?'&#x2705;':'&#x274C;'}</div><div class="label">Status</div><div class="value">${d?.enabled?'Enabled':'Disabled'}</div></div>
+      <div class="stat-card c-accent"><div class="card-icon">&#x1F3AF;</div><div class="label">Hit Rate</div><div class="value">${d?.hit_rate_percent||0}%</div></div>
+      <div class="stat-card c-blue"><div class="card-icon">&#x1F4CA;</div><div class="label">Hits / Misses</div><div class="value">${d?.hit_count||0} / ${d?.miss_count||0}</div></div>
+      <div class="stat-card c-cyan"><div class="card-icon">&#x1F4E6;</div><div class="label">Entries</div><div class="value">${d?.entries_count||0}</div></div>
+      <div class="stat-card c-yellow"><div class="card-icon">&#x23F1;</div><div class="label">TTL</div><div class="value">${d?.ttl_seconds||0}s</div></div>
+    </div>
+    <div style="display:flex;gap:var(--space-sm)">
+      <button class="btn ${d?.enabled?'btn-outline':'btn-primary'}" onclick="toggleCache()">${d?.enabled?'&#x23F8; Disable':'&#x25B6; Enable'} Cache</button>
+      <button class="btn btn-danger" onclick="clearCache()">&#x1F5D1; Clear All</button>
+    </div>`;
+}
+async function toggleCache(){const d=await api('/v1/cache/stats');await api('/v1/cache/toggle',{method:'POST',body:JSON.stringify({enabled:!d?.enabled})});toast('Cache toggled');loadCache();}
+async function clearCache(){await api('/v1/cache/invalidate',{method:'POST',body:JSON.stringify({pattern:'*'})});toast('Cache cleared');loadCache();}
+
+// ── QUEUE ──
+
+async function loadQueue(){
+  const d=await api('/v1/queue/status');
+  document.getElementById('queue-content').innerHTML=`<div class="cards">
+    <div class="stat-card c-accent"><div class="card-icon">&#x2699;</div><div class="label">Processing</div><div class="value">${d?.processing||0}</div></div>
+    <div class="stat-card c-blue"><div class="card-icon">&#x1F4CF;</div><div class="label">Max Concurrent</div><div class="value">${d?.max_concurrent||0}</div></div>
+    <div class="stat-card c-yellow"><div class="card-icon">&#x23F1;</div><div class="label">Avg Wait</div><div class="value">${(d?.avg_wait_ms||0).toFixed(1)}ms</div></div>
+    <div class="stat-card c-cyan"><div class="card-icon">&#x1F4E5;</div><div class="label">Queued</div><div class="value">${d?.queued||0}</div></div>
+  </div>`;
+}
+
+// ── DIAGNOSTICS ──
+
+async function loadDiagnostics(){
+  const [h,b]=await Promise.all([api('/v1/health'),api('/v1/admin/backup/list')]);
+  document.getElementById('diagnostics-content').innerHTML=`
+    <div class="section-title">&#x1F49A; System Health</div><pre>${JSON.stringify(h,null,2)}</pre>
+    <div class="section-title" style="margin-top:var(--space-xl)">&#x1F4BE; Backups</div>
+    <div class="toolbar"><button class="btn btn-primary btn-sm" onclick="runBackup()">&#x1F4BE; Run Backup Now</button>
+    <button class="btn btn-outline btn-sm" onclick="window.open('/v1/admin/config/export/download','_blank')">&#x1F4E5; Download Config</button></div>
+    <pre>${JSON.stringify(b,null,2)}</pre>`;
+}
+async function runBackup(){const r=await api('/v1/admin/backup',{method:'POST'});toast(r?.filename?'Backup: '+r.filename:'Failed','info');loadDiagnostics();}
+
+// ── WEBSOCKET ──
+
+let ws;
+function connectWS(){
+  if(!TOKEN)return;
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}/v1/admin/ws/sessions?token=${TOKEN}`);
+  ws.onopen=()=>{document.getElementById('ws-status').style.background='var(--green)';document.getElementById('ws-badge').lastChild.textContent='Connected';};
+  ws.onclose=()=>{document.getElementById('ws-status').style.background='var(--red)';document.getElementById('ws-badge').lastChild.textContent='Disconnected';setTimeout(connectWS,3000);};
+  ws.onerror=()=>ws.close();
+  ws.onmessage=e=>{try{renderSessions(JSON.parse(e.data));}catch(err){}};
+}
+function renderSessions(msg){
+  let sessions=msg.sessions||[];if(msg.event!=='snapshot')return;
+  const tbody=document.getElementById('sessions-tbody');
+  if(!sessions.length){tbody.innerHTML='<tr><td colspan="7" class="empty-state"><div class="empty-icon">&#x1F4E1;</div><p>No active sessions</p></td></tr>';return;}
+  tbody.innerHTML=sessions.map(s=>{
+    const badge={queued:'yellow',running:'blue',streaming:'purple',done:'green',error:'red'}[s.status]||'';
+    return`<tr><td>${s.client_name||'-'}</td><td>${s.provider}</td><td>${s.model}</td><td><span class="badge ${badge}">${s.status}</span></td><td>${s.elapsed_ms}ms</td><td>${s.output_tokens_so_far}</td><td style="font-size:.72rem;color:var(--muted)">${s.ip}</td></tr>`;
+  }).join('');
+}
+
+// ── INIT ──
+connectWS();
+loadDashboard();
+</script>
+</body></html>
