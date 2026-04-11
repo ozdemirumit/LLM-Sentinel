@@ -261,12 +261,162 @@ const response = await client.chat.completions.create({
 });
 ```
 
-### With Cursor / Continue IDE
+### With LangChain
 
-In your IDE settings:
-- **Base URL:** `http://localhost:8765/v1`
-- **API Key:** `sk-proxy-xxx`
-- **Model:** `fast` or `smart` or any real model name
+```python
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    base_url="http://localhost:8765/v1",
+    api_key="sk-proxy-xxx",
+    model="smart",
+)
+
+response = llm.invoke("Explain machine learning in one paragraph.")
+print(response.content)
+```
+
+### With LlamaIndex
+
+```python
+from llama_index.llms.openai import OpenAI
+
+llm = OpenAI(
+    api_base="http://localhost:8765/v1",
+    api_key="sk-proxy-xxx",
+    model="smart",
+)
+
+response = llm.complete("What is retrieval augmented generation?")
+print(response.text)
+```
+
+---
+
+## Client Configuration Guide
+
+Any application that supports custom OpenAI endpoints works with LLM Sentinel. Here are step-by-step instructions for popular tools.
+
+### Cursor IDE
+
+1. Open **Settings** (Ctrl+Comma or Cmd+Comma)
+2. Go to **Models** section
+3. Configure:
+   - **OpenAI API Base:** `http://localhost:8765/v1`
+   - **API Key:** `sk-proxy-xxx` (your client key from Admin UI)
+   - **Model:** `smart` or `fast` or any model name
+4. All AI features (Tab completion, Chat, Composer) now route through LLM Sentinel
+
+> **Tip:** Use the `fast` alias for Tab completions (speed matters) and `smart` for Chat/Composer (quality matters).
+
+### Continue (VS Code / JetBrains)
+
+Edit the Continue config file:
+- **VS Code:** `~/.continue/config.json`
+- **JetBrains:** `~/.continue/config.json`
+
+```json
+{
+  "models": [
+    {
+      "title": "LLM Sentinel - Smart",
+      "provider": "openai",
+      "model": "smart",
+      "apiBase": "http://localhost:8765/v1",
+      "apiKey": "sk-proxy-xxx"
+    },
+    {
+      "title": "LLM Sentinel - Fast",
+      "provider": "openai",
+      "model": "fast",
+      "apiBase": "http://localhost:8765/v1",
+      "apiKey": "sk-proxy-xxx"
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "LLM Sentinel - Autocomplete",
+    "provider": "openai",
+    "model": "fast",
+    "apiBase": "http://localhost:8765/v1",
+    "apiKey": "sk-proxy-xxx"
+  }
+}
+```
+
+### Cline (VS Code Extension)
+
+1. Open Cline settings (click the gear icon in the Cline panel)
+2. Configure:
+   - **API Provider:** `OpenAI Compatible`
+   - **Base URL:** `http://localhost:8765/v1`
+   - **API Key:** `sk-proxy-xxx`
+   - **Model:** `smart`
+
+### Aider
+
+```bash
+# Set environment variables
+export OPENAI_API_BASE=http://localhost:8765/v1
+export OPENAI_API_KEY=sk-proxy-xxx
+
+# Run aider with any alias
+aider --model openai/smart
+```
+
+Or in `~/.aider.conf.yml`:
+```yaml
+openai-api-base: http://localhost:8765/v1
+openai-api-key: sk-proxy-xxx
+model: openai/smart
+```
+
+### Open WebUI
+
+1. Go to **Admin Panel** > **Settings** > **Connections**
+2. Add a new OpenAI connection:
+   - **URL:** `http://localhost:8765/v1`
+   - **API Key:** `sk-proxy-xxx`
+3. Save and select models from the model dropdown
+
+### TypingMind
+
+1. Go to **Settings** > **Custom Endpoint**
+2. Configure:
+   - **Endpoint:** `http://localhost:8765/v1/chat/completions`
+   - **API Key:** `sk-proxy-xxx`
+   - **Model:** `smart`
+
+### AutoGen / CrewAI
+
+```python
+import autogen
+
+config_list = [
+    {
+        "model": "smart",
+        "base_url": "http://localhost:8765/v1",
+        "api_key": "sk-proxy-xxx",
+    }
+]
+
+assistant = autogen.AssistantAgent(
+    name="assistant",
+    llm_config={"config_list": config_list},
+)
+```
+
+### Generic Configuration (Any OpenAI-Compatible Client)
+
+For any tool or library that supports custom OpenAI endpoints:
+
+| Setting | Value |
+|---------|-------|
+| **Base URL / API Base** | `http://localhost:8765/v1` |
+| **API Key** | `sk-proxy-xxx` (from Admin UI > Clients) |
+| **Model** | Any alias (`fast`, `smart`, `powerful`) or real model name (`claude-sonnet-4-6`, `gpt-4o`) |
+| **API Type** | `openai` or `openai-compatible` |
+
+**The key insight:** LLM Sentinel speaks the OpenAI API protocol. Any client that can talk to OpenAI can talk to Sentinel — just change the URL and key.
 
 ---
 
