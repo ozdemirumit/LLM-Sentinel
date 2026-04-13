@@ -892,45 +892,6 @@ MAX_CONCURRENT_GLOBAL=500
 
 ---
 
-## Comparison
-
-How onPrem LLM Sentinel compares to other LLM gateways:
-
-| Feature | onPrem LLM Sentinel | LiteLLM | Helicone | Portkey |
-|---------|:---:|:---:|:---:|:---:|
-| **Gateway & Routing** | | | | |
-| Open Source | ✅ MIT | ✅ | Partial | ❌ |
-| Self-hosted | ✅ | ✅ | ✅ | ❌ |
-| Provider count | 9 + custom | 100+ | Proxy only | 15+ |
-| Model aliasing | ✅ | ❌ | ❌ | ❌ |
-| Fallback chains | ✅ | ✅ | ❌ | ✅ |
-| **Policy & Governance** | | | | |
-| Admin UI | ✅ 18 tabs | ❌ CLI only | ✅ | ✅ |
-| Content policies | ✅ 6 types | ❌ | ❌ | Partial |
-| Data masking | ✅ 20 patterns | ❌ | ❌ | ❌ |
-| Per-client permissions | ✅ Fine-grained | ❌ | ❌ | Partial |
-| Audit trail | ✅ | ❌ | ✅ | ✅ |
-| **Performance** | | | | |
-| Async architecture | ✅ FastAPI | ✅ | N/A | N/A |
-| Semantic cache | ✅ | ✅ | ❌ | ✅ |
-| Circuit breaker | ✅ | ✅ | ❌ | ✅ |
-| Priority queue | ✅ | ❌ | ❌ | ❌ |
-| Multi-worker | ✅ | ✅ | N/A | N/A |
-| **Operations** | | | | |
-| Cost tracking | ✅ Per-client | ✅ | ✅ | ✅ |
-| Live sessions (WS) | ✅ | ❌ | ❌ | ❌ |
-| Prometheus metrics | ✅ | ✅ | ❌ | ❌ |
-| Webhook alerts | ✅ | ❌ | ✅ | ✅ |
-| **Security** | | | | |
-| Request signing | ✅ HMAC-SHA256 | ❌ | ❌ | ❌ |
-| Key encryption (AES) | ✅ | ❌ | ❌ | N/A |
-| LDAP/AD SSO | ✅ | ❌ | ❌ | ❌ |
-| **Deployment** | | | | |
-| Zero-dependency UI | ✅ No npm/node | ❌ | ❌ | ❌ |
-| Single command deploy | ✅ `python main.py` | ❌ | ❌ | ❌ |
-
----
-
 ## Contributing
 
 Contributions are welcome! Here's how you can help:
