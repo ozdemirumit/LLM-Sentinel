@@ -477,13 +477,66 @@ async function deleteAlias(id){if(!confirm('Delete alias?'))return;await api(`/v
 
 // ── POLICIES ──
 
+// Store policies data for editing
+let _policiesCache=[];
 async function loadPolicies(){
   const data=await api('/v1/policies');if(!Array.isArray(data)||!data.length){document.getElementById('policies-table').innerHTML=emptyState('&#x1F6E1;','No content policies configured.','<button class="btn btn-primary" onclick="openPolicyModal()">&#x2B; Create Policy</button>');return;}
-  let rows=data.map(p=>`<tr><td><strong>${p.name}</strong></td><td><span class="badge purple">${p.policy_type}</span></td><td>${p.priority}</td><td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td><td><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deletePolicy('${p.id}')">&#x1F5D1;</button></td></tr>`).join('');
-  document.getElementById('policies-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Type</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+  _policiesCache=data;
+  let rows=data.map(p=>`<tr>
+    <td><strong>${p.name}</strong><br><span style="font-size:.68rem;color:var(--muted)">${p.id.slice(0,8)}...</span></td>
+    <td><span class="badge purple">${p.policy_type}</span></td>
+    <td>${p.priority}</td>
+    <td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" onclick="viewPolicy('${p.id}')">&#x1F441; View</button>
+      <button class="btn btn-ghost btn-sm" onclick="editPolicy('${p.id}')">&#x270F; Edit</button>
+      <button class="btn btn-ghost btn-sm" onclick="togglePolicy('${p.id}',${p.is_active})">${p.is_active?'&#x23F8; Disable':'&#x25B6; Enable'}</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deletePolicy('${p.id}')">&#x1F5D1;</button>
+    </div></td></tr>`).join('');
+  document.getElementById('policies-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Type</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
 }
 function openPolicyModal(){openModal('Create Content Policy',`<div class="form-group"><label>Name</label><input id="f-pol-name" placeholder="block-sensitive-topics"></div><div class="form-group"><label>Type</label><select id="f-pol-type"><option value="system_prompt_inject">System Prompt Inject</option><option value="system_prompt_enforce">System Prompt Enforce</option><option value="topic_block">Topic Block</option><option value="output_filter">Output Filter</option><option value="max_output_tokens">Max Output Tokens</option><option value="model_restrict">Model Restrict</option><option value="prompt_injection_detect">Prompt Injection Detect</option><option value="jailbreak_detect">Jailbreak Detect</option><option value="data_leakage_prevent">Data Leakage Prevent</option></select><div class="helper">prompt_injection_detect: blocks instruction override attempts<br>jailbreak_detect: blocks DAN, encoding tricks, safety bypasses<br>data_leakage_prevent: redacts API keys, internal URLs, secrets from responses</div></div><div class="form-group"><label>Config (JSON)</label><textarea id="f-pol-config">{"action": "reject", "message": "Blocked by security policy."}</textarea></div><div class="form-group"><label>Priority</label><input id="f-pol-prio" type="number" value="50"><div class="helper">Lower number = runs first</div></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createPolicy()">&#x2B; Create</button>`);}
 async function createPolicy(){let config;try{config=JSON.parse(document.getElementById('f-pol-config').value);}catch(e){toast('Invalid JSON config','error');return;}const body={name:document.getElementById('f-pol-name').value,policy_type:document.getElementById('f-pol-type').value,config_json:config,priority:parseInt(document.getElementById('f-pol-prio').value)||50};const r=await api('/v1/policies',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Policy created');loadPolicies();}else toast('Error','error');}
+function viewPolicy(id){
+  const p=_policiesCache.find(x=>x.id===id);if(!p)return;
+  openModal(`Policy Details — ${p.name}`,
+    `<div class="form-group"><label>Name</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${p.name}</div></div>
+     <div class="form-group"><label>Type</label><div><span class="badge purple">${p.policy_type}</span></div></div>
+     <div class="form-group"><label>Priority</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${p.priority}</div></div>
+     <div class="form-group"><label>Status</label><div>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</div></div>
+     <div class="form-group"><label>Applies To</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.82rem">${p.applies_to_clients?p.applies_to_clients.join(', '):'All clients'}</div></div>
+     <div class="form-group"><label>Configuration</label><pre style="margin:0">${JSON.stringify(p.config_json,null,2)}</pre></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Close</button><button class="btn btn-primary" onclick="closeModal();editPolicy('${p.id}')">&#x270F; Edit</button>`);
+}
+
+function editPolicy(id){
+  const p=_policiesCache.find(x=>x.id===id);if(!p)return;
+  openModal(`Edit Policy — ${p.name}`,
+    `<div class="form-group"><label>Name</label><input id="f-edit-pol-name" value="${p.name}"></div>
+     <div class="form-group"><label>Priority</label><input id="f-edit-pol-prio" type="number" value="${p.priority}"><div class="helper">Lower number = runs first</div></div>
+     <div class="form-group"><label>Configuration (JSON)</label><textarea id="f-edit-pol-config" style="min-height:120px">${JSON.stringify(p.config_json,null,2)}</textarea></div>
+     <div class="form-group"><label>Active</label><select id="f-edit-pol-active"><option value="true" ${p.is_active?'selected':''}>Active</option><option value="false" ${!p.is_active?'selected':''}>Inactive</option></select></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="savePolicy('${p.id}')">Save Changes</button>`);
+}
+
+async function savePolicy(id){
+  let config;try{config=JSON.parse(document.getElementById('f-edit-pol-config').value);}catch(e){toast('Invalid JSON','error');return;}
+  const body={
+    name:document.getElementById('f-edit-pol-name').value,
+    config_json:config,
+    priority:parseInt(document.getElementById('f-edit-pol-prio').value)||50,
+    is_active:document.getElementById('f-edit-pol-active').value==='true',
+  };
+  const r=await api(`/v1/policies/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  closeModal();
+  if(r?.id||r?.name){toast('Policy updated');loadPolicies();}else toast('Error: '+(r?.detail||''),'error');
+}
+
+async function togglePolicy(id,isActive){
+  await api(`/v1/policies/${id}`,{method:'PUT',body:JSON.stringify({is_active:!isActive})});
+  toast(isActive?'Policy disabled':'Policy enabled');loadPolicies();
+}
+
 async function deletePolicy(id){if(!confirm('Delete policy?'))return;await api(`/v1/policies/${id}`,{method:'DELETE'});toast('Deleted');loadPolicies();}
 
 // ── FILTERING ──
