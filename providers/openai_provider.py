@@ -80,6 +80,20 @@ class OpenAIProvider(BaseLLMProvider):
             ch = chunk.choices[0] if chunk.choices else None
             if ch is None:
                 continue
+            # Build delta dict, including tool_calls if present
+            delta_dict: dict[str, Any] = {}
+            if ch.delta:
+                if ch.delta.role:
+                    delta_dict["role"] = ch.delta.role
+                if ch.delta.content is not None:
+                    delta_dict["content"] = ch.delta.content
+                if ch.delta.tool_calls:
+                    delta_dict["tool_calls"] = [
+                        {"index": tc.index, "id": tc.id, "type": "function",
+                         "function": {"name": tc.function.name if tc.function else None,
+                                      "arguments": tc.function.arguments if tc.function else ""}}
+                        for tc in ch.delta.tool_calls
+                    ]
             yield {
                 "id": chunk.id,
                 "object": "chat.completion.chunk",
@@ -87,11 +101,7 @@ class OpenAIProvider(BaseLLMProvider):
                 "model": chunk.model,
                 "choices": [{
                     "index": 0,
-                    "delta": {
-                        k: v for k, v in {
-                            "role": ch.delta.role if ch.delta else None,
-                            "content": ch.delta.content if ch.delta else None,
-                        }.items() if v is not None
+                    "delta": {k: v for k, v in delta_dict.items() if v is not None
                     },
                     "finish_reason": ch.finish_reason,
                 }],

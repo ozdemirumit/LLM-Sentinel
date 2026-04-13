@@ -112,24 +112,67 @@ class AnthropicProvider(BaseLLMProvider):
             "model": model,
             "messages": msgs,
             "max_tokens": max_tokens or 4096,
-            "stream": True,
         }
         if system:
             params["system"] = system
         if temperature is not None:
             params["temperature"] = temperature
+        if stop:
+            params["stop_sequences"] = stop if isinstance(stop, list) else [stop]
+
+        anthropic_tools = self._convert_tools(tools)
+        if anthropic_tools:
+            params["tools"] = anthropic_tools
 
         import uuid
         chunk_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+        finish_reason = "stop"
 
-        # Send role first
         yield self._make_stream_chunk(role="assistant", model=model, chunk_id=chunk_id)
 
-        async with client.messages.stream(**{k: v for k, v in params.items() if k != "stream"}) as stream:
-            async for text in stream.text_stream:
-                yield self._make_stream_chunk(content=text, model=model, chunk_id=chunk_id)
+        async with client.messages.stream(**params) as stream:
+            current_tool_id = None
+            current_tool_name = None
+            tool_args_buffer = ""
 
-        yield self._make_stream_chunk(finish_reason="stop", model=model, chunk_id=chunk_id)
+            async for event in stream:
+                # Text content
+                if hasattr(event, "type"):
+                    if event.type == "content_block_start" and hasattr(event, "content_block"):
+                        block = event.content_block
+                        if block.type == "tool_use":
+                            current_tool_id = block.id
+                            current_tool_name = block.name
+                            tool_args_buffer = ""
+                    elif event.type == "content_block_delta" and hasattr(event, "delta"):
+                        delta = event.delta
+                        if delta.type == "text_delta":
+                            yield self._make_stream_chunk(content=delta.text, model=model, chunk_id=chunk_id)
+                        elif delta.type == "input_json_delta" and current_tool_id:
+                            tool_args_buffer += delta.partial_json
+                    elif event.type == "content_block_stop" and current_tool_id:
+                        yield self._make_stream_chunk(
+                            tool_calls=[{
+                                "index": 0, "id": current_tool_id, "type": "function",
+                                "function": {"name": current_tool_name, "arguments": tool_args_buffer},
+                            }],
+                            model=model, chunk_id=chunk_id,
+                        )
+                        finish_reason = "tool_calls"
+                        current_tool_id = None
+                        current_tool_name = None
+                        tool_args_buffer = ""
+                    elif event.type == "message_delta" and hasattr(event, "delta"):
+                        if hasattr(event.delta, "stop_reason"):
+                            if event.delta.stop_reason == "tool_use":
+                                finish_reason = "tool_calls"
+                            elif event.delta.stop_reason == "max_tokens":
+                                finish_reason = "length"
+                elif isinstance(event, str):
+                    # text_stream fallback
+                    yield self._make_stream_chunk(content=event, model=model, chunk_id=chunk_id)
+
+        yield self._make_stream_chunk(finish_reason=finish_reason, model=model, chunk_id=chunk_id)
 
     async def list_models(self) -> list[str]:
         return [

@@ -98,7 +98,16 @@ def truncate_messages(
     kept: list[dict] = []
     used = 0
     for m in reversed(other_msgs):
-        msg_tokens = estimate_tokens(m.get("content", "")) + 4
+        content = m.get("content", "")
+        if isinstance(content, str):
+            msg_tokens = estimate_tokens(content) + 4
+        elif isinstance(content, list):
+            msg_tokens = sum(
+                estimate_tokens(p.get("text", "")) if isinstance(p, dict) else 0
+                for p in content
+            ) + 4
+        else:
+            msg_tokens = 4
         if used + msg_tokens > budget:
             break
         kept.insert(0, m)
