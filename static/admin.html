@@ -541,12 +541,66 @@ async function deletePolicy(id){if(!confirm('Delete policy?'))return;await api(`
 
 // ── FILTERING ──
 
+let _filtersCache=[];
 async function loadFiltering(){
   const data=await api('/v1/filter-patterns');if(!Array.isArray(data))return;
-  let rows=data.map(p=>`<tr><td>${p.name}</td><td style="font-family:monospace;font-size:.72rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)">${p.pattern}</td><td><code>${p.replacement}</code></td><td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Off</span>'}</td><td>${p.is_builtin?'<span class="badge blue">Built-in</span>':'Custom'}</td><td>${p.is_builtin?'':'<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteFilter(\''+p.id+'\')">&#x1F5D1;</button>'}</td></tr>`).join('');
-  document.getElementById('filtering-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Pattern</th><th>Replacement</th><th>Status</th><th>Type</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+  _filtersCache=data;
+  let rows=data.map(p=>{
+    const escapedPattern=p.pattern.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td style="font-family:monospace;font-size:.72rem;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)">${escapedPattern}</td>
+      <td><code>${p.replacement}</code></td>
+      <td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Off</span>'}</td>
+      <td>${p.is_builtin?'<span class="badge blue">Built-in</span>':'Custom'}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" onclick="viewFilter('${p.id}')">&#x1F441;</button>
+        <button class="btn btn-ghost btn-sm" onclick="editFilter('${p.id}')">&#x270F;</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleFilter('${p.id}',${p.is_active})">${p.is_active?'&#x23F8;':'&#x25B6;'}</button>
+        ${p.is_builtin?'':'<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteFilter(\''+p.id+'\')">&#x1F5D1;</button>'}
+      </div></td></tr>`;
+  }).join('');
+  document.getElementById('filtering-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Pattern</th><th>Replacement</th><th>Status</th><th>Type</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
 }
-function openFilterModal(){openModal('Create Filter Pattern',`<div class="form-group"><label>Name</label><input id="f-filt-name" placeholder="My Custom Pattern"></div><div class="form-group"><label>Regex Pattern</label><input id="f-filt-pattern" placeholder="(?i)secret\\s*[:=]\\s*\\S+"></div><div class="form-group"><label>Replacement</label><input id="f-filt-repl" value="[REDACTED]"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createFilter()">&#x2B; Create</button>`);}
+
+function viewFilter(id){
+  const p=_filtersCache.find(x=>x.id===id);if(!p)return;
+  openModal(`Filter Details — ${p.name}`,
+    `<div class="form-group"><label>Name</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${p.name}</div></div>
+     <div class="form-group"><label>Regex Pattern</label><pre style="margin:0;white-space:pre-wrap;word-break:break-all">${p.pattern.replace(/</g,'&lt;')}</pre></div>
+     <div class="form-group"><label>Replacement</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)"><code>${p.replacement}</code></div></div>
+     <div class="form-group"><label>Flags</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${p.flags||'IGNORECASE'}</div></div>
+     <div class="form-group"><label>Status</label><div>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'} ${p.is_builtin?'<span class="badge blue">Built-in</span>':''}</div></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Close</button><button class="btn btn-primary" onclick="closeModal();editFilter('${p.id}')">&#x270F; Edit</button>`);
+}
+
+function editFilter(id){
+  const p=_filtersCache.find(x=>x.id===id);if(!p)return;
+  openModal(`Edit Filter — ${p.name}`,
+    `<div class="form-group"><label>Name</label><input id="f-edit-filt-name" value="${p.name}"></div>
+     <div class="form-group"><label>Regex Pattern</label><textarea id="f-edit-filt-pattern" style="font-family:monospace;min-height:60px">${p.pattern.replace(/</g,'&lt;')}</textarea></div>
+     <div class="form-group"><label>Replacement</label><input id="f-edit-filt-repl" value="${p.replacement}"></div>
+     <div class="form-group"><label>Active</label><select id="f-edit-filt-active"><option value="true" ${p.is_active?'selected':''}>Active</option><option value="false" ${!p.is_active?'selected':''}>Inactive</option></select></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveFilter('${p.id}')">Save Changes</button>`);
+}
+
+async function saveFilter(id){
+  const body={
+    name:document.getElementById('f-edit-filt-name').value,
+    pattern:document.getElementById('f-edit-filt-pattern').value,
+    replacement:document.getElementById('f-edit-filt-repl').value,
+    is_active:document.getElementById('f-edit-filt-active').value==='true',
+  };
+  await api(`/v1/filter-patterns/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  closeModal();toast('Filter updated');loadFiltering();
+}
+
+async function toggleFilter(id,isActive){
+  await api(`/v1/filter-patterns/${id}`,{method:'PUT',body:JSON.stringify({is_active:!isActive})});
+  toast(isActive?'Filter disabled':'Filter enabled');loadFiltering();
+}
+
+function openFilterModal(){openModal('Create Filter Pattern',`<div class="form-group"><label>Name</label><input id="f-filt-name" placeholder="My Custom Pattern"></div><div class="form-group"><label>Regex Pattern</label><textarea id="f-filt-pattern" style="font-family:monospace;min-height:60px" placeholder="(?i)secret\\s*[:=]\\s*\\S+"></textarea></div><div class="form-group"><label>Replacement</label><input id="f-filt-repl" value="[REDACTED]"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createFilter()">&#x2B; Create</button>`);}
 async function createFilter(){const body={name:document.getElementById('f-filt-name').value,pattern:document.getElementById('f-filt-pattern').value,replacement:document.getElementById('f-filt-repl').value};const r=await api('/v1/filter-patterns',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Pattern created');loadFiltering();}else toast('Error','error');}
 async function deleteFilter(id){if(!confirm('Delete?'))return;await api(`/v1/filter-patterns/${id}`,{method:'DELETE'});toast('Deleted');loadFiltering();}
 

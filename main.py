@@ -803,10 +803,24 @@ async def create_pattern(request: Request, user: AuthenticatedUser = Depends(ver
 
 @app.put("/v1/filter-patterns/{pid}")
 async def update_pattern(pid: str, request: Request, user: AuthenticatedUser = Depends(verify_admin)):
-    from filter_db import toggle_pattern
+    from db import FilterPattern, get_db
+    from sqlalchemy import select
     body = await request.json()
-    if not await toggle_pattern(pid, body.get("is_active", True)):
-        raise HTTPException(404, "Pattern not found")
+    async with get_db() as db:
+        result = await db.execute(select(FilterPattern).where(FilterPattern.id == pid))
+        row = result.scalars().first()
+        if not row:
+            raise HTTPException(404, "Pattern not found")
+        if "is_active" in body:
+            row.is_active = body["is_active"]
+        if "name" in body:
+            row.name = body["name"]
+        if "pattern" in body:
+            row.pattern = body["pattern"]
+        if "replacement" in body:
+            row.replacement = body["replacement"]
+        if "flags" in body:
+            row.flags = body["flags"]
     return {"message": "Pattern updated"}
 
 
