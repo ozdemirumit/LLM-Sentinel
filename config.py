@@ -264,6 +264,11 @@ class Settings(BaseSettings):
     CACHE_MAX_TOKENS: int = 100000
     CACHE_STRATEGY: str = "exact"
 
+    # == AI GUARD (for AI-powered threat detection) ==
+    GUARD_PROVIDER: str = ""
+    GUARD_MODEL: str = ""
+    GUARD_BASE_URL: str = ""
+
     # == PRIORITY QUEUING ==
     QUEUE_TIMEOUT_SECONDS: int = 30
 
