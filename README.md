@@ -5,9 +5,9 @@
 [![Tests](https://img.shields.io/badge/Tests-147%20passed-brightgreen.svg)](#running-tests)
 [![OpenAI Compatible](https://img.shields.io/badge/API-OpenAI%20Compatible-10a37f.svg)](#quick-start)
 
-**Enterprise LLM Gateway & Policy Engine — unified API, intelligent routing, full governance.**
+**Enterprise LLM Gateway & Policy Engine — unified API, intelligent routing, AI-powered security.**
 
-onPrem LLM Sentinel is a high-performance gateway that unifies access to all major LLM providers through a single OpenAI-compatible API. It gives engineering and platform teams centralized control over AI usage — routing, cost management, access policies, and real-time observability — without changing a single line of application code.
+onPrem LLM Sentinel is a high-performance gateway that unifies access to all major LLM providers through a single OpenAI-compatible API. It gives engineering and platform teams centralized control over AI usage — routing, cost management, access policies, threat detection, and real-time observability — without changing a single line of application code.
 
 Connect **Anthropic, OpenAI, Azure OpenAI, Gemini, AWS Bedrock, Groq, Mistral, Ollama**, or any OpenAI-compatible endpoint. Any tool that speaks the OpenAI protocol works instantly — just change `base_url` and `api_key`.
 
@@ -36,12 +36,13 @@ See the full collection: [docs/screenshots/](docs/screenshots/)
 
 | Category | Highlights |
 |----------|-----------|
-| **Unified Gateway** | 9 built-in providers + unlimited custom endpoints, model aliasing, intelligent routing, fallback chains |
-| **Policy Engine** | System prompt injection, topic blocking, model restriction, PII redaction, 20 built-in data masking patterns |
-| **Cost Management** | Real-time per-request cost tracking, daily quotas, built-in pricing for major models |
-| **Performance** | Async I/O, hundreds of concurrent requests, semantic caching, circuit breaker, priority queuing |
-| **Security** | AES-256-GCM encryption, JWT + API keys, LDAP/AD SSO, request signing, password policies, audit trail |
-| **Observability** | 18-tab admin dashboard, WebSocket live sessions, Prometheus metrics, structured logging, webhook alerts |
+| **Unified Gateway** | 9 built-in providers + unlimited custom endpoints, model aliasing, intelligent routing, fallback chains, tool/function calling support |
+| **AI-Powered Security** | Prompt injection detection, jailbreak detection, data leakage prevention — regex patterns (zero cost) or LLM-powered semantic analysis, or both combined |
+| **Policy Engine** | 9 policy types: system prompt inject/enforce, topic blocking, model restriction, PII redaction, prompt injection detect, jailbreak detect, data leakage prevent, max output tokens |
+| **Cost Management** | Real-time per-request cost tracking, daily quotas, built-in pricing for major models, cache hit/miss tracking in request logs |
+| **Performance** | Async I/O, hundreds of concurrent requests, semantic caching (enabled by default), circuit breaker, priority queuing |
+| **Security** | AES-256-GCM encryption, JWT + API keys, LDAP/AD SSO, request signing, password policies, user management UI, audit trail |
+| **Observability** | 19-tab admin dashboard, real-time WebSocket live sessions (no refresh needed), Prometheus metrics, structured logging, webhook alerts |
 
 ---
 
@@ -51,14 +52,39 @@ See the full collection: [docs/screenshots/](docs/screenshots/)
   Applications                 onPrem LLM Sentinel              LLM Providers
                           ┌───────────────────────────┐
   Cursor IDE ─────┐       │   Auth & Permissions      │       ┌── Anthropic
-  Continue   ─────┤       │   Policy Engine            │       ├── OpenAI
-  Python App ─────┤──────>│   Rate Limiting & Queuing  │──────>├── Azure OpenAI
-  LangChain  ─────┤       │   Cost Tracking            │       ├── Gemini
-  curl / API ─────┘       │   Caching & Circuit Breaker│       ├── Bedrock / Groq
-                          │   Data Masking             │       ├── Mistral / Ollama
-  OpenAI-compatible       │   Live Monitoring          │       └── Custom endpoints
-  base_url + api_key      └───────────────────────────┘
+  Continue   ─────┤       │   AI Threat Detection     │       ├── OpenAI
+  Python App ─────┤──────>│   Policy Engine (9 types)  │──────>├── Azure OpenAI
+  LangChain  ─────┤       │   Rate Limiting & Queuing  │       ├── Gemini
+  curl / API ─────┘       │   Cost Tracking & Caching  │       ├── Bedrock / Groq
+                          │   Data Masking (20 patterns)│       ├── Mistral / Ollama
+  OpenAI-compatible       │   Circuit Breaker          │       └── Custom endpoints
+  base_url + api_key      │   Live Monitoring          │
+                          └───────────────────────────┘
+                             Admin Dashboard (19 tabs)
+                             Prometheus / Webhooks
 ```
+
+---
+
+## AI-Powered Threat Detection
+
+onPrem LLM Sentinel includes built-in security policies that are **active by default** on first startup:
+
+| Policy | What It Detects | Mode |
+|--------|----------------|------|
+| **Prompt Injection Protection** | Instruction override, role hijacking, system prompt extraction, delimiter attacks (20+ patterns) | Regex, AI, or Both |
+| **Jailbreak Protection** | DAN/STAN jailbreaks, safety bypass, encoding tricks, base64 hidden commands, hypothetical framing (15+ patterns) | Regex, AI, or Both |
+| **Data Leakage Prevention** | API keys, internal IPs/URLs, connection strings, private keys, secrets leaked in LLM responses (15+ patterns) | Regex-based redaction |
+
+**Three detection modes** configurable per-policy via Admin UI:
+
+| Mode | How It Works | Cost | Latency |
+|------|-------------|------|---------|
+| **Regex** (default) | Pattern matching against known attack signatures | Free | ~0ms |
+| **AI** | Sends message to a guard LLM for semantic classification | ~$0.001/request | ~500ms |
+| **Both** | Regex first (fast catch), then AI for what regex misses | ~$0.001 on regex miss | ~0ms hit, ~500ms miss |
+
+AI mode works with any provider — use Anthropic Haiku for speed, a local Ollama model for zero cost, or any OpenAI-compatible endpoint.
 
 ---
 
@@ -88,6 +114,12 @@ python main.py --create-admin
 # 6. Add provider API keys via Admin UI → API Key Pools
 # 7. Create a client via Admin UI → Clients → + New Client
 ```
+
+On first startup, the following are automatically created:
+- 3 security policies (prompt injection, jailbreak, data leakage)
+- 20 data masking patterns
+- 7 model aliases
+- 10 cost rates
 
 ---
 
@@ -134,25 +166,25 @@ Create custom aliases from Admin UI → **Aliases** tab.
 
 ## Admin Panel
 
-18-tab dashboard at `http://localhost:8765/admin/login`:
+19-tab dashboard at `http://localhost:8765/admin/login` — every item is fully editable:
 
 | Tab | What It Does |
 |-----|-------------|
-| **Dashboard** | Real-time stats, WebSocket live sessions |
-| **Clients** | Create/manage apps, API keys, permissions, quotas |
+| **Dashboard** | Real-time stats, WebSocket live sessions (auto-updates, no refresh needed) |
+| **Clients** | Create/edit/delete apps, API keys, permissions, quotas, priority |
 | **API Key Pools** | Add/remove provider keys (encrypted at rest) |
-| **Providers** | Configure custom LLM endpoints (vLLM, Ollama, etc.) |
-| **Aliases** | Model name shortcuts |
-| **Policies** | Content guardrails: prompt injection, topic blocking, PII filtering |
-| **Filtering** | Regex data masking (20 built-in patterns) |
-| **Costs** | Per-model pricing, cost summary |
-| **Alerts** | Webhook notifications for system events |
+| **Providers** | Configure/edit/test custom LLM endpoints (vLLM, Ollama, etc.) |
+| **Aliases** | Create/edit model name shortcuts |
+| **Policies** | Create/edit/toggle security policies with AI Guard mode selector |
+| **Filtering** | Create/edit/toggle regex data masking patterns (20 built-in) |
+| **Costs** | Create/edit per-model pricing, cost summary dashboard |
+| **Alerts** | Create/edit/test webhook notifications for system events |
 | **Circuit Breakers** | Provider health status, manual reset |
 | **Security** | Key encryption rotation, IP bans |
-| **Users & LDAP** | Local user management, LDAP/AD configuration |
+| **Users & LDAP** | Create/edit/delete local users, reset passwords, LDAP status & test |
 | **Audit Log** | Security event history |
-| **Request Logs** | Detailed request/response logs |
-| **Cache** | Semantic cache stats, enable/disable |
+| **Request Logs** | Detailed logs with cache hit/miss tracking |
+| **Cache** | Semantic cache stats, enable/disable (enabled by default) |
 | **Queue** | Request processing queue status |
 | **Diagnostics** | Health checks, backups, config export |
 
@@ -164,13 +196,13 @@ For detailed tab-by-tab instructions, see the [Admin Guide](docs/admin-guide.md)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/v1/chat/completions` | OpenAI-compatible chat |
+| POST | `/v1/chat/completions` | OpenAI-compatible chat (with tool/function calling) |
 | POST | `/v1/embeddings` | Create embeddings |
 | GET | `/v1/models` | List available models |
 | GET | `/health/live` | Liveness probe (no auth) |
 | GET | `/v1/metrics` | Prometheus metrics |
 
-Full endpoint list (95 routes) in the [User Guide](docs/user-guide.md#api-endpoints).
+Full endpoint list (95+ routes) in the [User Guide](docs/user-guide.md#api-endpoints).
 
 ---
 
@@ -195,8 +227,8 @@ python -m pytest tests/ --cov=. --cov-report=html
 
 | Document | Description |
 |----------|-------------|
-| [User Guide](docs/user-guide.md) | SDK examples, streaming, embeddings, tool calling, error handling, IDE setup |
-| [Admin Guide](docs/admin-guide.md) | Installation, configuration, all admin panel tabs, production checklist, troubleshooting |
+| [User Guide](docs/user-guide.md) | SDK examples, streaming, embeddings, tool calling, error handling, IDE setup for 10+ tools |
+| [Admin Guide](docs/admin-guide.md) | Installation, configuration, all admin panel tabs, AI Guard setup, production checklist, troubleshooting |
 | [LDAP Setup](docs/ldap-setup.md) | Active Directory integration |
 | [TLS Setup](docs/tls-setup.md) | HTTPS, Let's Encrypt, self-signed certs |
 
@@ -206,13 +238,13 @@ python -m pytest tests/ --cov=. --cov-report=html
 
 ```
 onprem-llm-sentinel/
-  main.py              FastAPI app (95 routes, 18-tab admin UI)
+  main.py              FastAPI app (95+ routes, 19-tab admin UI)
   config.py            Settings (.env loader)
   db.py                SQLAlchemy ORM (15 tables, AES-256-GCM)
   auth.py              JWT + API key + LDAP authentication
   llm_proxy.py         Orchestrator (retry, fallback, alias, truncation)
   providers/           9 LLM provider adapters
-  guardrails.py        Content policy engine
+  guardrails.py        Policy engine + AI threat detection
   data_filter.py       Data masking (20 patterns)
   caching.py           Semantic cache
   cost_tracker.py      Cost tracking
