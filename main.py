@@ -348,7 +348,15 @@ async def _handle_chat(request: Request, user: AuthenticatedUser, openai_format:
     request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
     start = time.time()
 
-    body = await request.json()
+    try:
+        body = await request.json()
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        # Handle non-UTF-8 encoded bodies (e.g. Windows-1254 Turkish chars)
+        raw = await request.body()
+        try:
+            body = json.loads(raw.decode("utf-8", errors="replace"))
+        except Exception:
+            raise HTTPException(400, detail=f"Invalid request body encoding: {exc}")
 
     # Extract fields
     messages = body.get("messages", [])
