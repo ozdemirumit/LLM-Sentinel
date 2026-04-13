@@ -871,24 +871,13 @@ llm-sentinel/
 
 ## Performance
 
-| Metric | Value |
-|--------|-------|
-| **Concurrent requests** | 100+ per worker (async I/O) |
-| **Multi-worker scaling** | `PROXY_WORKERS=N` (recommended: CPU cores x 2 + 1) |
-| **Request overhead** | < 5ms added latency (auth + policy + routing) |
-| **Cache hit response** | < 2ms (skips LLM entirely) |
-| **Startup time** | ~2 seconds (DB init + seed data) |
-| **Memory footprint** | ~80MB per worker (base) |
-| **Supported protocols** | HTTP/1.1, HTTP/2, WebSocket (SSE streaming) |
-| **Max request body** | Configurable (default 512KB) |
-| **Token throughput** | Limited only by upstream provider rate limits |
+Built on FastAPI's async architecture for high throughput and low latency:
 
-Scale horizontally by increasing workers and adding Redis for shared state:
-```env
-PROXY_WORKERS=9               # e.g. 4-core CPU: 4 x 2 + 1
-REDIS_URL=redis://localhost:6379/0
-MAX_CONCURRENT_GLOBAL=500
-```
+- **Hundreds of concurrent requests** handled per process with non-blocking I/O
+- **Minimal overhead** — authentication, policy checks, and routing add negligible latency
+- **Instant cache responses** — cached requests return without calling the LLM
+- **Automatic failover** — unhealthy providers are skipped instantly via circuit breakers
+- **Horizontal scaling** — increase workers to use all CPU cores for higher capacity
 
 ---
 
