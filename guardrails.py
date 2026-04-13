@@ -548,3 +548,61 @@ async def _evaluate_single(
         result.applied_policies.append(policy.name)
 
     return result
+
+
+# ==========================================================================
+# Seed built-in security policies
+# ==========================================================================
+
+BUILTIN_SECURITY_POLICIES = [
+    {
+        "name": "Prompt Injection Protection",
+        "policy_type": "prompt_injection_detect",
+        "config_json": {
+            "action": "reject",
+            "message": "Request blocked: prompt injection detected.",
+            "sensitivity": "medium",
+        },
+        "priority": 1,
+    },
+    {
+        "name": "Jailbreak Protection",
+        "policy_type": "jailbreak_detect",
+        "config_json": {
+            "action": "reject",
+            "message": "Request blocked: jailbreak attempt detected.",
+        },
+        "priority": 2,
+    },
+    {
+        "name": "Data Leakage Prevention",
+        "policy_type": "data_leakage_prevent",
+        "config_json": {
+            "action": "redact",
+        },
+        "priority": 90,
+    },
+]
+
+
+async def seed_security_policies() -> int:
+    """Insert built-in security policies if they don't exist. Returns count inserted."""
+    count = 0
+    async with get_db() as db:
+        for bp in BUILTIN_SECURITY_POLICIES:
+            existing = await db.execute(
+                select(ContentPolicyDB).where(ContentPolicyDB.name == bp["name"])
+            )
+            if existing.scalars().first():
+                continue
+            db.add(ContentPolicyDB(
+                name=bp["name"],
+                policy_type=bp["policy_type"],
+                config_json=bp["config_json"],
+                is_active=True,
+                priority=bp["priority"],
+            ))
+            count += 1
+    if count:
+        log.info("Seeded built-in security policies", extra={"count": count})
+    return count

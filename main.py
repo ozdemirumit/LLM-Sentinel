@@ -100,10 +100,12 @@ async def lifespan(app: FastAPI):
     from filter_db import seed_builtin_patterns
     from model_alias import seed_builtin_aliases
     from cost_tracker import seed_cost_rates
+    from guardrails import seed_security_policies
 
     await seed_builtin_patterns()
     await seed_builtin_aliases()
     await seed_cost_rates()
+    await seed_security_policies()
 
     # Key pool
     from key_pool import get_key_pool_manager
