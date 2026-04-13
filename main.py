@@ -360,6 +360,7 @@ async def _handle_chat(request: Request, user: AuthenticatedUser, openai_format:
     tool_choice = body.get("tool_choice")
     stop = body.get("stop")
     provider_hint = body.get("provider")
+    system_prompt = body.get("system")
 
     # Rate limiting
     ok, retry = await check_ip_rate(ip)
@@ -494,7 +495,7 @@ async def _handle_chat(request: Request, user: AuthenticatedUser, openai_format:
             else:
                 native_result = await proxy.chat(
                     messages=clean_messages, provider=provider, model=model,
-                    tools=tools,
+                    tools=tools, system=system_prompt,
                 )
                 input_tok = native_result.usage.input_tokens
                 output_tok = native_result.usage.output_tokens

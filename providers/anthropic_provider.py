@@ -33,18 +33,22 @@ class AnthropicProvider(BaseLLMProvider):
         return system, converted
 
     def _convert_tools(self, tools: list[dict] | None) -> list[dict] | None:
-        """Convert OpenAI tool format to Anthropic format."""
+        """Convert OpenAI or Anthropic tool format to Anthropic format."""
         if not tools:
             return None
         result = []
         for t in tools:
             if t.get("type") == "function":
+                # OpenAI format → Anthropic
                 func = t.get("function", {})
                 result.append({
                     "name": func.get("name", ""),
                     "description": func.get("description", ""),
                     "input_schema": func.get("parameters", {}),
                 })
+            elif t.get("name") and t.get("input_schema"):
+                # Already Anthropic format — pass through
+                result.append(t)
         return result or None
 
     async def chat(self, messages, model, temperature=None, max_tokens=None,
