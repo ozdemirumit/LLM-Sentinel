@@ -896,6 +896,27 @@ async def create_cost_rate(request: Request, user: AuthenticatedUser = Depends(v
     return r.model_dump(mode="json")
 
 
+@app.put("/v1/costs/rates/{rid}")
+async def update_cost_rate(rid: str, request: Request, user: AuthenticatedUser = Depends(verify_admin)):
+    from db import CostRateDB, get_db
+    from sqlalchemy import select
+    body = await request.json()
+    async with get_db() as db:
+        result = await db.execute(select(CostRateDB).where(CostRateDB.id == rid))
+        row = result.scalars().first()
+        if not row:
+            raise HTTPException(404, "Rate not found")
+        if "input_cost_per_1k" in body:
+            row.input_cost_per_1k = body["input_cost_per_1k"]
+        if "output_cost_per_1k" in body:
+            row.output_cost_per_1k = body["output_cost_per_1k"]
+        if "provider" in body:
+            row.provider = body["provider"]
+        if "model" in body:
+            row.model = body["model"]
+    return {"message": "Rate updated"}
+
+
 @app.delete("/v1/costs/rates/{rid}")
 async def deactivate_cost_rate(rid: str, user: AuthenticatedUser = Depends(verify_admin)):
     from cost_tracker import deactivate_rate

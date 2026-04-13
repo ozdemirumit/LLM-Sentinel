@@ -380,9 +380,11 @@ async function loadDashboard(){
 
 // ── CLIENTS ──
 
+let _clientsCache=[];
 async function loadClients(){
   const data=await api('/v1/clients');
   if(!Array.isArray(data)||!data.length){document.getElementById('clients-table').innerHTML=emptyState('&#x1F465;','No clients yet.','<button class="btn btn-primary" onclick="openClientModal()">&#x2B; Create your first client</button>');return;}
+  _clientsCache=data;
   let rows=data.map(c=>`<tr>
     <td><strong>${c.name}</strong><br><span style="font-size:.68rem;color:var(--muted)">${c.id.slice(0,8)}...</span></td>
     <td>${(c.roles||[]).map(r=>`<span class="badge purple">${r}</span>`).join(' ')}</td>
@@ -390,8 +392,9 @@ async function loadClients(){
     <td>${c.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
     <td style="font-size:.72rem;color:var(--muted)">${c.last_used_at?new Date(c.last_used_at).toLocaleString():'Never'}</td>
     <td><div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" onclick="editClient('${c.id}')">&#x270F;</button>
       <button class="btn btn-ghost btn-sm" onclick="viewQuota('${c.id}')">Quota</button>
-      <button class="btn btn-ghost btn-sm" onclick="regenKey('${c.id}','${c.name}')">&#x1F504; Regen</button>
+      <button class="btn btn-ghost btn-sm" onclick="regenKey('${c.id}','${c.name}')">&#x1F504;</button>
       <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteClient('${c.id}','${c.name}')">&#x1F5D1;</button>
     </div></td></tr>`).join('');
   document.getElementById('clients-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Roles</th><th>Priority</th><th>RPM</th><th>Status</th><th>Last Used</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
@@ -426,6 +429,29 @@ async function createClient(){
   } else toast('Error: '+(r?.detail||JSON.stringify(r)),'error');
 }
 
+function editClient(id){
+  const c=_clientsCache.find(x=>x.id===id);if(!c)return;
+  openModal(`Edit Client — ${c.name}`,
+    `<div class="form-group"><label>Name</label><input id="f-ec-name" value="${c.name}"></div>
+     <div class="form-group"><label>Permissions</label><input id="f-ec-perms" value="${(c.permissions||['*']).join(',')}"><div class="helper">Comma-separated. * = full access</div></div>
+     <div class="form-group"><label>Rate Limit (RPM)</label><input id="f-ec-rpm" type="number" value="${c.rate_limit_per_minute}"></div>
+     <div class="form-group"><label>Daily Token Quota</label><input id="f-ec-quota" type="number" value="${c.daily_token_quota}"><div class="helper">0 = unlimited</div></div>
+     <div class="form-group"><label>Priority</label><input id="f-ec-prio" type="number" value="${c.priority}" min="1" max="10"></div>
+     <div class="form-group"><label>Description</label><input id="f-ec-desc" value="${c.description||''}"></div>
+     <div class="form-group"><label>Active</label><select id="f-ec-active"><option value="true" ${c.is_active?'selected':''}>Active</option><option value="false" ${!c.is_active?'selected':''}>Inactive</option></select></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveClient('${c.id}')">Save Changes</button>`);
+}
+async function saveClient(id){
+  const perms=document.getElementById('f-ec-perms').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body={name:document.getElementById('f-ec-name').value,permissions:perms,
+    rate_limit_per_minute:parseInt(document.getElementById('f-ec-rpm').value)||60,
+    daily_token_quota:parseInt(document.getElementById('f-ec-quota').value)||0,
+    priority:parseInt(document.getElementById('f-ec-prio').value)||5,
+    description:document.getElementById('f-ec-desc').value||null,
+    is_active:document.getElementById('f-ec-active').value==='true'};
+  const r=await api(`/v1/clients/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  closeModal();if(r?.name||r?.id){toast('Client updated');loadClients();}else toast('Error: '+(r?.detail||''),'error');
+}
 async function regenKey(id,name){if(!confirm(`Regenerate API key for "${name}"?`))return;const r=await api(`/v1/clients/${id}/regenerate-key`,{method:'POST'});if(r?.api_key){openModal('New API Key',`<p>New key for <strong>${name}</strong>:</p><div class="key-display">${r.api_key}</div>`,`<button class="btn btn-primary" onclick="closeModal()">Done</button>`);}}
 async function deleteClient(id,name){if(!confirm(`Delete "${name}"?`))return;await api(`/v1/clients/${id}`,{method:'DELETE'});toast(`Client "${name}" deleted`);loadClients();}
 async function viewQuota(id){const q=await api(`/v1/clients/${id}/quota`);openModal('Quota Usage',`<div class="cards"><div class="stat-card c-blue"><div class="label">Input Tokens</div><div class="value">${q?.input_tokens||0}</div></div><div class="stat-card c-cyan"><div class="label">Output Tokens</div><div class="value">${q?.output_tokens||0}</div></div><div class="stat-card c-yellow"><div class="label">Used</div><div class="value">${q?.percent_used||0}%</div></div></div><p style="color:var(--muted);font-size:.82rem">Date: ${q?.date} | Quota: ${q?.daily_quota||'Unlimited'}</p>`,`<button class="btn btn-outline" onclick="closeModal()">Close</button>`);}
@@ -451,13 +477,34 @@ async function removeKey(p,i){if(!confirm(`Remove key #${i} from ${p}?`))return;
 
 // ── PROVIDERS ──
 
+let _providersCache=[];
 async function loadProviders(){
   const data=await api('/v1/providers');
   if(!Array.isArray(data)||!data.length){document.getElementById('providers-table').innerHTML=emptyState('&#x1F310;','No custom providers configured.','<button class="btn btn-primary" onclick="openProviderModal()">&#x2B; Add Provider</button>');return;}
+  _providersCache=data;
   let rows=data.map(p=>`<tr><td><strong>${p.name}</strong></td><td><span class="badge blue">${p.provider_type}</span></td><td style="font-size:.75rem;color:var(--muted)">${p.base_url||'-'}</td>
     <td>${p.default_model}</td><td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
-    <td><div style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" onclick="testProvider('${p.id}')">&#x26A1; Test</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteProvider('${p.id}')">&#x1F5D1;</button></div></td></tr>`).join('');
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" onclick="editProvider('${p.id}')">&#x270F;</button>
+      <button class="btn btn-ghost btn-sm" onclick="testProvider('${p.id}')">&#x26A1; Test</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteProvider('${p.id}')">&#x1F5D1;</button>
+    </div></td></tr>`).join('');
   document.getElementById('providers-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Type</th><th>Base URL</th><th>Default Model</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function editProvider(id){
+  const p=_providersCache.find(x=>x.id===id);if(!p)return;
+  openModal(`Edit Provider — ${p.name}`,
+    `<div class="form-group"><label>Name</label><input id="f-ep-name" value="${p.name}"></div>
+     <div class="form-group"><label>Base URL</label><input id="f-ep-url" value="${p.base_url||''}"></div>
+     <div class="form-group"><label>Default Model</label><input id="f-ep-model" value="${p.default_model||''}"></div>
+     <div class="form-group"><label>Active</label><select id="f-ep-active"><option value="true" ${p.is_active?'selected':''}>Active</option><option value="false" ${!p.is_active?'selected':''}>Inactive</option></select></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveProvider('${p.id}')">Save Changes</button>`);
+}
+async function saveProvider(id){
+  const body={name:document.getElementById('f-ep-name').value,base_url:document.getElementById('f-ep-url').value,
+    default_model:document.getElementById('f-ep-model').value,is_active:document.getElementById('f-ep-active').value==='true'};
+  await api(`/v1/providers/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  closeModal();toast('Provider updated');loadProviders();
 }
 function openProviderModal(){openModal('Add Custom Provider',`<div class="form-group"><label>Name</label><input id="f-prov-name" placeholder="my-vllm"></div><div class="form-group"><label>Type</label><select id="f-prov-type"><option value="openai_compatible">OpenAI Compatible</option><option value="ollama">Ollama</option><option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="azure_openai">Azure OpenAI</option><option value="gemini">Gemini</option></select><div class="helper">Use "OpenAI Compatible" for vLLM, LiteLLM, LocalAI, etc.</div></div><div class="form-group"><label>Base URL</label><input id="f-prov-url" placeholder="http://gpu-server:8000/v1"></div><div class="form-group"><label>Default Model</label><input id="f-prov-model" placeholder="meta/llama3"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createProvider()">&#x2B; Create</button>`);}
 async function createProvider(){const body={name:document.getElementById('f-prov-name').value,provider_type:document.getElementById('f-prov-type').value,base_url:document.getElementById('f-prov-url').value,default_model:document.getElementById('f-prov-model').value};const r=await api('/v1/providers',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Provider created');loadProviders();}else toast('Error','error');}
@@ -466,10 +513,33 @@ async function deleteProvider(id){if(!confirm('Delete provider?'))return;await a
 
 // ── ALIASES ──
 
+let _aliasesCache=[];
 async function loadAliases(){
   const data=await api('/v1/aliases');if(!Array.isArray(data))return;
-  let rows=data.map(a=>`<tr><td><strong>${a.alias}</strong></td><td>${a.provider}</td><td>${a.model}</td><td>${a.usage_count}</td><td>${a.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td><td><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteAlias('${a.id}')">&#x1F5D1;</button></td></tr>`).join('');
-  document.getElementById('aliases-table').innerHTML=tw(`<table><thead><tr><th>Alias</th><th>Provider</th><th>Model</th><th>Usage</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+  _aliasesCache=data;
+  let rows=data.map(a=>`<tr><td><strong>${a.alias}</strong></td><td>${a.provider}</td><td>${a.model}</td><td>${a.usage_count}</td>
+    <td>${a.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" onclick="editAlias('${a.id}')">&#x270F;</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteAlias('${a.id}')">&#x1F5D1;</button>
+    </div></td></tr>`).join('');
+  document.getElementById('aliases-table').innerHTML=tw(`<table><thead><tr><th>Alias</th><th>Provider</th><th>Model</th><th>Usage</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function editAlias(id){
+  const a=_aliasesCache.find(x=>x.id===id);if(!a)return;
+  openModal(`Edit Alias — ${a.alias}`,
+    `<div class="form-group"><label>Alias</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);color:var(--muted)">${a.alias} <span style="font-size:.7rem">(cannot be changed)</span></div></div>
+     <div class="form-group"><label>Provider</label><input id="f-ea-prov" value="${a.provider}"></div>
+     <div class="form-group"><label>Model</label><input id="f-ea-model" value="${a.model}"></div>
+     <div class="form-group"><label>Description</label><input id="f-ea-desc" value="${a.description||''}"></div>
+     <div class="form-group"><label>Active</label><select id="f-ea-active"><option value="true" ${a.is_active?'selected':''}>Active</option><option value="false" ${!a.is_active?'selected':''}>Inactive</option></select></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveAlias('${a.id}')">Save Changes</button>`);
+}
+async function saveAlias(id){
+  const body={provider:document.getElementById('f-ea-prov').value,model:document.getElementById('f-ea-model').value,
+    description:document.getElementById('f-ea-desc').value||null,is_active:document.getElementById('f-ea-active').value==='true'};
+  const r=await api(`/v1/aliases/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  closeModal();if(r?.alias){toast('Alias updated');loadAliases();}else toast('Error: '+(r?.detail||''),'error');
 }
 function openAliasModal(){openModal('Create Model Alias',`<div class="form-group"><label>Alias</label><input id="f-alias-name" placeholder="my-fast"><div class="helper">Lowercase slug: letters, numbers, hyphens only</div></div><div class="form-group"><label>Provider</label><input id="f-alias-prov" placeholder="anthropic"></div><div class="form-group"><label>Model</label><input id="f-alias-model" placeholder="claude-haiku-4-5-20251001"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createAlias()">&#x2B; Create</button>`);}
 async function createAlias(){const body={alias:document.getElementById('f-alias-name').value,provider:document.getElementById('f-alias-prov').value,model:document.getElementById('f-alias-model').value};const r=await api('/v1/aliases',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Alias created');loadAliases();}else toast('Error: '+(r?.detail||''),'error');}
@@ -606,15 +676,36 @@ async function deleteFilter(id){if(!confirm('Delete?'))return;await api(`/v1/fil
 
 // ── COSTS ──
 
+let _costsCache=[];
 async function loadCosts(){
   const data=await api('/v1/costs/rates');if(!Array.isArray(data))return;
-  let rows=data.map(r=>`<tr><td>${r.provider}</td><td>${r.model}</td><td>$${r.input_cost_per_1k}</td><td>$${r.output_cost_per_1k}</td><td><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deactivateRate('${r.id}')">&#x1F5D1;</button></td></tr>`).join('');
-  document.getElementById('costs-table').innerHTML=tw(`<table><thead><tr><th>Provider</th><th>Model</th><th>Input $/1K</th><th>Output $/1K</th><th></th></tr></thead><tbody>${rows}</tbody></table>`);
+  _costsCache=data;
+  let rows=data.map(r=>`<tr><td>${r.provider}</td><td>${r.model}</td><td>$${r.input_cost_per_1k}</td><td>$${r.output_cost_per_1k}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-sm" onclick="editCostRate('${r.id}')">&#x270F;</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deactivateRate('${r.id}')">&#x1F5D1;</button>
+    </div></td></tr>`).join('');
+  document.getElementById('costs-table').innerHTML=tw(`<table><thead><tr><th>Provider</th><th>Model</th><th>Input $/1K</th><th>Output $/1K</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
   const s=await api('/v1/costs/summary');
   document.getElementById('costs-summary').innerHTML=`<div class="cards"><div class="stat-card c-green"><div class="card-icon">&#x1F4B5;</div><div class="label">Total Cost</div><div class="value">$${(s?.total_cost_usd||0).toFixed(4)}</div></div><div class="stat-card c-accent"><div class="card-icon">&#x1F4E8;</div><div class="label">Requests</div><div class="value">${s?.request_count||0}</div></div><div class="stat-card c-blue"><div class="card-icon">&#x1F4AC;</div><div class="label">Total Tokens</div><div class="value">${((s?.total_input_tokens||0)+(s?.total_output_tokens||0)).toLocaleString()}</div></div></div>`;
 }
 function openCostModal(){openModal('Add Cost Rate',`<div class="form-group"><label>Provider</label><input id="f-cost-prov" placeholder="anthropic"></div><div class="form-group"><label>Model</label><input id="f-cost-model" placeholder="claude-sonnet-4-6"></div><div class="form-group"><label>Input Cost per 1K tokens ($)</label><input id="f-cost-in" type="number" step="0.0001" value="0.003"></div><div class="form-group"><label>Output Cost per 1K tokens ($)</label><input id="f-cost-out" type="number" step="0.0001" value="0.015"></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createCostRate()">&#x2B; Add Rate</button>`);}
 async function createCostRate(){const body={provider:document.getElementById('f-cost-prov').value,model:document.getElementById('f-cost-model').value,input_cost_per_1k:parseFloat(document.getElementById('f-cost-in').value),output_cost_per_1k:parseFloat(document.getElementById('f-cost-out').value)};const r=await api('/v1/costs/rates',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Rate added');loadCosts();}else toast('Error','error');}
+function editCostRate(id){
+  const r=_costsCache.find(x=>x.id===id);if(!r)return;
+  openModal(`Edit Cost Rate — ${r.provider}/${r.model}`,
+    `<div class="form-group"><label>Provider</label><input id="f-ecr-prov" value="${r.provider}"></div>
+     <div class="form-group"><label>Model</label><input id="f-ecr-model" value="${r.model}"></div>
+     <div class="form-group"><label>Input Cost per 1K tokens ($)</label><input id="f-ecr-in" type="number" step="0.0001" value="${r.input_cost_per_1k}"></div>
+     <div class="form-group"><label>Output Cost per 1K tokens ($)</label><input id="f-ecr-out" type="number" step="0.0001" value="${r.output_cost_per_1k}"></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveCostRate('${r.id}')">Save Changes</button>`);
+}
+async function saveCostRate(id){
+  const body={provider:document.getElementById('f-ecr-prov').value,model:document.getElementById('f-ecr-model').value,
+    input_cost_per_1k:parseFloat(document.getElementById('f-ecr-in').value),output_cost_per_1k:parseFloat(document.getElementById('f-ecr-out').value)};
+  await api(`/v1/costs/rates/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  closeModal();toast('Rate updated');loadCosts();
+}
 async function deactivateRate(id){await api(`/v1/costs/rates/${id}`,{method:'DELETE'});toast('Rate removed');loadCosts();}
 
 // ── ALERTS ──
@@ -622,7 +713,8 @@ async function deactivateRate(id){await api(`/v1/costs/rates/${id}`,{method:'DEL
 async function loadAlerts(){
   const configs=await api('/v1/alerts/configs');
   if(Array.isArray(configs)&&configs.length){
-    let rows=configs.map(c=>`<tr><td>${c.event_type}</td><td style="font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)">${c.webhook_url}</td><td><span class="badge yellow">${c.min_severity}</span></td><td>${c.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Off</span>'}</td><td><div style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" onclick="testAlert('${c.id}')">&#x26A1; Test</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteAlert('${c.id}')">&#x1F5D1;</button></div></td></tr>`).join('');
+    _alertsCache=configs;
+    let rows=configs.map(c=>`<tr><td>${c.event_type}</td><td style="font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)">${c.webhook_url}</td><td><span class="badge yellow">${c.min_severity}</span></td><td>${c.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Off</span>'}</td><td><div style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" onclick="editAlert('${c.id}')">&#x270F;</button><button class="btn btn-ghost btn-sm" onclick="testAlert('${c.id}')">&#x26A1;</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteAlert('${c.id}')">&#x1F5D1;</button></div></td></tr>`).join('');
     document.getElementById('alerts-table').innerHTML=tw(`<table><thead><tr><th>Event</th><th>Webhook</th><th>Severity</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
   } else document.getElementById('alerts-table').innerHTML=emptyState('&#x1F6A8;','No alert configs.','<button class="btn btn-primary" onclick="openAlertModal()">&#x2B; New Alert</button>');
   const history=await api('/v1/alerts/history?limit=20');
@@ -633,6 +725,23 @@ async function loadAlerts(){
 }
 function openAlertModal(){openModal('Create Alert Config',`<div class="form-group"><label>Event Type</label><select id="f-alert-event"><option value="*">All Events</option><option value="circuit_open">Circuit Open</option><option value="no_healthy_keys">No Healthy Keys</option><option value="quota_breach">Quota Breach</option><option value="system_error">System Error</option><option value="ip_ban">IP Ban</option></select></div><div class="form-group"><label>Webhook URL</label><input id="f-alert-url" placeholder="https://hooks.slack.com/..."></div><div class="form-group"><label>Min Severity</label><select id="f-alert-sev"><option value="info">Info</option><option value="warning" selected>Warning</option><option value="critical">Critical</option></select></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createAlert()">&#x2B; Create</button>`);}
 async function createAlert(){const body={event_type:document.getElementById('f-alert-event').value,webhook_url:document.getElementById('f-alert-url').value,min_severity:document.getElementById('f-alert-sev').value};const r=await api('/v1/alerts/configs',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Alert created');loadAlerts();}else toast('Error','error');}
+let _alertsCache=[];
+function editAlert(id){
+  const c=_alertsCache.find(x=>x.id===id);if(!c)return;
+  const sevSel=s=>c.min_severity===s?'selected':'';
+  openModal(`Edit Alert — ${c.event_type}`,
+    `<div class="form-group"><label>Event Type</label><select id="f-ea-event"><option value="*" ${c.event_type==='*'?'selected':''}>All Events</option><option value="circuit_open" ${c.event_type==='circuit_open'?'selected':''}>Circuit Open</option><option value="no_healthy_keys" ${c.event_type==='no_healthy_keys'?'selected':''}>No Healthy Keys</option><option value="quota_breach" ${c.event_type==='quota_breach'?'selected':''}>Quota Breach</option><option value="system_error" ${c.event_type==='system_error'?'selected':''}>System Error</option><option value="ip_ban" ${c.event_type==='ip_ban'?'selected':''}>IP Ban</option></select></div>
+     <div class="form-group"><label>Webhook URL</label><input id="f-ea-url" value="${c.webhook_url}"></div>
+     <div class="form-group"><label>Min Severity</label><select id="f-ea-sev"><option value="info" ${sevSel('info')}>Info</option><option value="warning" ${sevSel('warning')}>Warning</option><option value="critical" ${sevSel('critical')}>Critical</option></select></div>
+     <div class="form-group"><label>Active</label><select id="f-ea-active"><option value="true" ${c.is_active?'selected':''}>Active</option><option value="false" ${!c.is_active?'selected':''}>Inactive</option></select></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveAlert('${c.id}')">Save Changes</button>`);
+}
+async function saveAlert(id){
+  const body={event_type:document.getElementById('f-ea-event').value,webhook_url:document.getElementById('f-ea-url').value,
+    min_severity:document.getElementById('f-ea-sev').value,is_active:document.getElementById('f-ea-active').value==='true'};
+  await api(`/v1/alerts/configs/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  closeModal();toast('Alert updated');loadAlerts();
+}
 async function testAlert(id){const r=await api(`/v1/alerts/configs/${id}/test`,{method:'POST'});toast(r?.success?'Test ping sent':'Test failed','info');}
 async function deleteAlert(id){if(!confirm('Delete?'))return;await api(`/v1/alerts/configs/${id}`,{method:'DELETE'});toast('Deleted');loadAlerts();}
 
