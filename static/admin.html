@@ -552,9 +552,14 @@ let _policiesCache=[];
 async function loadPolicies(){
   const data=await api('/v1/policies');if(!Array.isArray(data)||!data.length){document.getElementById('policies-table').innerHTML=emptyState('&#x1F6E1;','No content policies configured.','<button class="btn btn-primary" onclick="openPolicyModal()">&#x2B; Create Policy</button>');return;}
   _policiesCache=data;
-  let rows=data.map(p=>`<tr>
+  let rows=data.map(p=>{
+    const mode=p.config_json?.mode||'regex';
+    const modeBadge=mode==='ai'?'<span class="badge blue">AI</span>':mode==='both'?'<span class="badge yellow">Regex+AI</span>':'<span class="badge green">Regex</span>';
+    const isGuardType=p.policy_type==='prompt_injection_detect'||p.policy_type==='jailbreak_detect';
+    return `<tr>
     <td><strong>${p.name}</strong><br><span style="font-size:.68rem;color:var(--muted)">${p.id.slice(0,8)}...</span></td>
     <td><span class="badge purple">${p.policy_type}</span></td>
+    <td>${isGuardType?modeBadge:'-'}</td>
     <td>${p.priority}</td>
     <td>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</td>
     <td><div style="display:flex;gap:4px">
@@ -562,16 +567,76 @@ async function loadPolicies(){
       <button class="btn btn-ghost btn-sm" onclick="editPolicy('${p.id}')">&#x270F; Edit</button>
       <button class="btn btn-ghost btn-sm" onclick="togglePolicy('${p.id}',${p.is_active})">${p.is_active?'&#x23F8; Disable':'&#x25B6; Enable'}</button>
       <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deletePolicy('${p.id}')">&#x1F5D1;</button>
-    </div></td></tr>`).join('');
-  document.getElementById('policies-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Type</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
+    </div></td></tr>`;}).join('');
+  document.getElementById('policies-table').innerHTML=tw(`<table><thead><tr><th>Name</th><th>Type</th><th>Mode</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`);
 }
-function openPolicyModal(){openModal('Create Content Policy',`<div class="form-group"><label>Name</label><input id="f-pol-name" placeholder="block-sensitive-topics"></div><div class="form-group"><label>Type</label><select id="f-pol-type"><option value="system_prompt_inject">System Prompt Inject</option><option value="system_prompt_enforce">System Prompt Enforce</option><option value="topic_block">Topic Block</option><option value="output_filter">Output Filter</option><option value="max_output_tokens">Max Output Tokens</option><option value="model_restrict">Model Restrict</option><option value="prompt_injection_detect">Prompt Injection Detect</option><option value="jailbreak_detect">Jailbreak Detect</option><option value="data_leakage_prevent">Data Leakage Prevent</option></select><div class="helper">prompt_injection_detect: blocks instruction override attempts (regex, ai, or both)<br>jailbreak_detect: blocks DAN, encoding tricks, safety bypasses (regex, ai, or both)<br>data_leakage_prevent: redacts API keys, internal URLs, secrets from responses<br><br><strong>Mode options:</strong> Add "mode":"regex" (default, free), "mode":"ai" (LLM-powered), or "mode":"both" (regex first, then AI) to config JSON. AI mode needs guard_provider + guard_model.</div></div><div class="form-group"><label>Config (JSON)</label><textarea id="f-pol-config">{"action": "reject", "message": "Blocked by security policy."}</textarea></div><div class="form-group"><label>Priority</label><input id="f-pol-prio" type="number" value="50"><div class="helper">Lower number = runs first</div></div>`,`<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createPolicy()">&#x2B; Create</button>`);}
-async function createPolicy(){let config;try{config=JSON.parse(document.getElementById('f-pol-config').value);}catch(e){toast('Invalid JSON config','error');return;}const body={name:document.getElementById('f-pol-name').value,policy_type:document.getElementById('f-pol-type').value,config_json:config,priority:parseInt(document.getElementById('f-pol-prio').value)||50};const r=await api('/v1/policies',{method:'POST',body:JSON.stringify(body)});closeModal();if(r?.id){toast('Policy created');loadPolicies();}else toast('Error','error');}
+function openPolicyModal(){
+  openModal('Create Content Policy',
+    `<div class="form-group"><label>Name</label><input id="f-pol-name" placeholder="my-security-policy"></div>
+     <div class="form-group"><label>Type</label><select id="f-pol-type" onchange="toggleCreateGuardFields()">
+       <option value="system_prompt_inject">System Prompt Inject</option>
+       <option value="system_prompt_enforce">System Prompt Enforce</option>
+       <option value="topic_block">Topic Block</option>
+       <option value="output_filter">Output Filter</option>
+       <option value="max_output_tokens">Max Output Tokens</option>
+       <option value="model_restrict">Model Restrict</option>
+       <option value="prompt_injection_detect">Prompt Injection Detect</option>
+       <option value="jailbreak_detect">Jailbreak Detect</option>
+       <option value="data_leakage_prevent">Data Leakage Prevent</option>
+     </select></div>
+     <div id="f-pol-guard-section" style="display:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-md);margin-bottom:var(--space-md);background:var(--bg)">
+       <div style="font-size:.82rem;font-weight:600;margin-bottom:var(--space-sm);color:var(--accent-light)">AI Guard Settings</div>
+       <div class="form-group"><label>Detection Mode</label><select id="f-pol-mode">
+         <option value="regex">Regex Only (free, zero latency)</option>
+         <option value="ai">AI Only (LLM-powered)</option>
+         <option value="both">Regex + AI (recommended)</option>
+       </select></div>
+       <div class="form-group"><label>Guard Provider</label><input id="f-pol-gprov" placeholder="anthropic, openai, ollama (empty = .env default)"></div>
+       <div class="form-group"><label>Guard Model</label><input id="f-pol-gmodel" placeholder="claude-haiku-4-5-20251001 (empty = .env default)"></div>
+       <div class="form-group"><label>Guard Base URL</label><input id="f-pol-gurl" placeholder="http://localhost:11434 (optional, for Ollama/vLLM)"></div>
+     </div>
+     <div class="form-group"><label>Config (JSON)</label><textarea id="f-pol-config">{"action": "reject", "message": "Blocked by security policy."}</textarea></div>
+     <div class="form-group"><label>Priority</label><input id="f-pol-prio" type="number" value="50"><div class="helper">Lower number = runs first</div></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createPolicy()">&#x2B; Create</button>`);
+}
+function toggleCreateGuardFields(){
+  const t=document.getElementById('f-pol-type').value;
+  const show=t==='prompt_injection_detect'||t==='jailbreak_detect';
+  document.getElementById('f-pol-guard-section').style.display=show?'block':'none';
+}
+async function createPolicy(){
+  let config;try{config=JSON.parse(document.getElementById('f-pol-config').value);}catch(e){toast('Invalid JSON config','error');return;}
+  const ptype=document.getElementById('f-pol-type').value;
+  const isGuard=ptype==='prompt_injection_detect'||ptype==='jailbreak_detect';
+  if(isGuard){
+    const mode=document.getElementById('f-pol-mode')?.value;
+    if(mode)config.mode=mode;
+    const gp=document.getElementById('f-pol-gprov')?.value;if(gp)config.guard_provider=gp;
+    const gm=document.getElementById('f-pol-gmodel')?.value;if(gm)config.guard_model=gm;
+    const gu=document.getElementById('f-pol-gurl')?.value;if(gu)config.guard_base_url=gu;
+  }
+  const body={name:document.getElementById('f-pol-name').value,policy_type:ptype,config_json:config,priority:parseInt(document.getElementById('f-pol-prio').value)||50};
+  const r=await api('/v1/policies',{method:'POST',body:JSON.stringify(body)});closeModal();
+  if(r?.id){toast('Policy created');loadPolicies();}else toast('Error','error');
+}
 function viewPolicy(id){
   const p=_policiesCache.find(x=>x.id===id);if(!p)return;
+  const cfg=p.config_json||{};
+  const isGuard=p.policy_type==='prompt_injection_detect'||p.policy_type==='jailbreak_detect';
+  const mode=cfg.mode||'regex';
+  let guardInfo='';
+  if(isGuard){
+    guardInfo=`<div class="form-group"><label>Detection Mode</label><div>${mode==='ai'?'<span class="badge blue">AI-Powered</span>':mode==='both'?'<span class="badge yellow">Regex + AI</span>':'<span class="badge green">Regex Only</span>'}</div></div>`;
+    if(mode==='ai'||mode==='both'){
+      guardInfo+=`<div class="form-group"><label>Guard Provider</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${cfg.guard_provider||'(from .env GUARD_PROVIDER)'}</div></div>
+       <div class="form-group"><label>Guard Model</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${cfg.guard_model||'(from .env GUARD_MODEL)'}</div></div>`;
+      if(cfg.guard_base_url)guardInfo+=`<div class="form-group"><label>Guard Base URL</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.82rem">${cfg.guard_base_url}</div></div>`;
+    }
+  }
   openModal(`Policy Details — ${p.name}`,
     `<div class="form-group"><label>Name</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${p.name}</div></div>
      <div class="form-group"><label>Type</label><div><span class="badge purple">${p.policy_type}</span></div></div>
+     ${guardInfo}
      <div class="form-group"><label>Priority</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${p.priority}</div></div>
      <div class="form-group"><label>Status</label><div>${p.is_active?'<span class="badge green">Active</span>':'<span class="badge red">Inactive</span>'}</div></div>
      <div class="form-group"><label>Applies To</label><div style="padding:.5rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.82rem">${p.applies_to_clients?p.applies_to_clients.join(', '):'All clients'}</div></div>
@@ -581,16 +646,51 @@ function viewPolicy(id){
 
 function editPolicy(id){
   const p=_policiesCache.find(x=>x.id===id);if(!p)return;
+  const cfg=p.config_json||{};
+  const isGuard=p.policy_type==='prompt_injection_detect'||p.policy_type==='jailbreak_detect';
+  const mode=cfg.mode||'regex';
+
+  let guardFields='';
+  if(isGuard){
+    guardFields=`
+     <div style="border-top:1px solid var(--border);margin:var(--space-md) 0;padding-top:var(--space-md)">
+       <div style="font-size:.82rem;font-weight:600;margin-bottom:var(--space-sm);color:var(--accent-light)">AI Guard Settings</div>
+       <div class="form-group"><label>Detection Mode</label><select id="f-edit-pol-mode">
+         <option value="regex" ${mode==='regex'?'selected':''}>Regex Only (free, zero latency)</option>
+         <option value="ai" ${mode==='ai'?'selected':''}>AI Only (LLM-powered, semantic understanding)</option>
+         <option value="both" ${mode==='both'?'selected':''}>Regex + AI (regex first, AI for what regex misses)</option>
+       </select></div>
+       <div class="form-group"><label>Guard Provider</label><input id="f-edit-pol-gprov" value="${cfg.guard_provider||''}" placeholder="anthropic, openai, ollama (empty = .env default)"></div>
+       <div class="form-group"><label>Guard Model</label><input id="f-edit-pol-gmodel" value="${cfg.guard_model||''}" placeholder="claude-haiku-4-5-20251001 (empty = .env default)"></div>
+       <div class="form-group"><label>Guard Base URL</label><input id="f-edit-pol-gurl" value="${cfg.guard_base_url||''}" placeholder="http://localhost:11434 (for Ollama/vLLM, optional)"></div>
+     </div>`;
+  }
+
   openModal(`Edit Policy — ${p.name}`,
     `<div class="form-group"><label>Name</label><input id="f-edit-pol-name" value="${p.name}"></div>
      <div class="form-group"><label>Priority</label><input id="f-edit-pol-prio" type="number" value="${p.priority}"><div class="helper">Lower number = runs first</div></div>
      <div class="form-group"><label>Configuration (JSON)</label><textarea id="f-edit-pol-config" style="min-height:120px">${JSON.stringify(p.config_json,null,2)}</textarea></div>
+     ${guardFields}
      <div class="form-group"><label>Active</label><select id="f-edit-pol-active"><option value="true" ${p.is_active?'selected':''}>Active</option><option value="false" ${!p.is_active?'selected':''}>Inactive</option></select></div>`,
-    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="savePolicy('${p.id}')">Save Changes</button>`);
+    `<button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="savePolicy('${p.id}','${p.policy_type}')">Save Changes</button>`);
 }
 
-async function savePolicy(id){
+async function savePolicy(id,policyType){
   let config;try{config=JSON.parse(document.getElementById('f-edit-pol-config').value);}catch(e){toast('Invalid JSON','error');return;}
+
+  // Merge guard fields into config if this is a guard policy type
+  const isGuard=policyType==='prompt_injection_detect'||policyType==='jailbreak_detect';
+  if(isGuard){
+    const modeEl=document.getElementById('f-edit-pol-mode');
+    const gprovEl=document.getElementById('f-edit-pol-gprov');
+    const gmodelEl=document.getElementById('f-edit-pol-gmodel');
+    const gurlEl=document.getElementById('f-edit-pol-gurl');
+    if(modeEl)config.mode=modeEl.value;
+    if(gprovEl&&gprovEl.value)config.guard_provider=gprovEl.value;else delete config.guard_provider;
+    if(gmodelEl&&gmodelEl.value)config.guard_model=gmodelEl.value;else delete config.guard_model;
+    if(gurlEl&&gurlEl.value)config.guard_base_url=gurlEl.value;else delete config.guard_base_url;
+  }
+
   const body={
     name:document.getElementById('f-edit-pol-name').value,
     config_json:config,
