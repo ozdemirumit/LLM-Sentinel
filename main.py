@@ -518,9 +518,10 @@ async def _handle_chat(request: Request, user: AuthenticatedUser, openai_format:
             filtered_text, was_filtered = await evaluate_response(content_text, user.client_id)
 
             # Cache set
-            if settings.CACHE_ENABLED and cache_key and openai_format:
+            if settings.CACHE_ENABLED and cache_key:
                 total_tok = input_tok + output_tok
-                await set_cached_response(cache_key, result, total_tok)
+                if openai_format and result:
+                    await set_cached_response(cache_key, result, total_tok)
 
             # Record usage
             cost = None

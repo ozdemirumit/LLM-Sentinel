@@ -261,7 +261,7 @@ class Settings(BaseSettings):
     # == CACHE ==
     CACHE_ENABLED: bool = True
     CACHE_TTL_SECONDS: int = 3600
-    CACHE_MAX_TOKENS: int = 1000
+    CACHE_MAX_TOKENS: int = 100000
     CACHE_STRATEGY: str = "exact"
 
     # == PRIORITY QUEUING ==
