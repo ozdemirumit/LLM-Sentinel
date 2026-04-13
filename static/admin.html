@@ -751,13 +751,38 @@ function connectWS(){
   ws.onerror=()=>ws.close();
   ws.onmessage=e=>{try{renderSessions(JSON.parse(e.data));}catch(err){}};
 }
+// Track sessions in memory for incremental updates
+let _liveSessions={};
+
 function renderSessions(msg){
-  let sessions=msg.sessions||[];if(msg.event!=='snapshot')return;
   const tbody=document.getElementById('sessions-tbody');
-  if(!sessions.length){tbody.innerHTML='<tr><td colspan="7" class="empty-state"><div class="empty-icon">&#x1F4E1;</div><p>No active sessions</p></td></tr>';return;}
-  tbody.innerHTML=sessions.map(s=>{
+
+  if(msg.event==='snapshot' && msg.sessions){
+    // Full replace
+    _liveSessions={};
+    msg.sessions.forEach(s=>{_liveSessions[s.session_id]=s;});
+  } else if(msg.session){
+    // Incremental update
+    const s=msg.session;
+    if(msg.event==='session_start' || msg.event==='session_update'){
+      _liveSessions[s.session_id]=s;
+    } else if(msg.event==='session_end'){
+      _liveSessions[s.session_id]=s;
+      // Fade out done/error sessions after 30s
+      setTimeout(()=>{delete _liveSessions[s.session_id];renderSessionTable();},30000);
+    }
+  }
+  renderSessionTable();
+}
+
+function renderSessionTable(){
+  const tbody=document.getElementById('sessions-tbody');
+  const list=Object.values(_liveSessions).sort((a,b)=>(b.started_at||'').localeCompare(a.started_at||''));
+  if(!list.length){tbody.innerHTML='<tr><td colspan="7" class="empty-state"><div class="empty-icon">&#x1F4E1;</div><p>No active sessions</p></td></tr>';return;}
+  tbody.innerHTML=list.map(s=>{
     const badge={queued:'yellow',running:'blue',streaming:'purple',done:'green',error:'red'}[s.status]||'';
-    return`<tr><td>${s.client_name||'-'}</td><td>${s.provider}</td><td>${s.model}</td><td><span class="badge ${badge}">${s.status}</span></td><td>${s.elapsed_ms}ms</td><td>${s.output_tokens_so_far}</td><td style="font-size:.72rem;color:var(--muted)">${s.ip}</td></tr>`;
+    const opacity=s.status==='done'||s.status==='error'?'opacity:.5':'';
+    return`<tr style="${opacity}"><td>${s.client_name||'-'}</td><td>${s.provider}</td><td>${s.model}</td><td><span class="badge ${badge}">${s.status}</span></td><td>${s.elapsed_ms}ms</td><td>${s.output_tokens_so_far}</td><td style="font-size:.72rem;color:var(--muted)">${s.ip}</td></tr>`;
   }).join('');
 }
 
