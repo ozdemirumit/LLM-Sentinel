@@ -35,6 +35,7 @@ async def log_request(
     status_code: int = 200,
     was_truncated: bool = False,
     masked_count: int = 0,
+    cache_hit: bool = False,
 ) -> None:
     """Log a chat request/response to the request_logs table."""
     input_preview = None
@@ -65,6 +66,7 @@ async def log_request(
                 status_code=status_code,
                 was_truncated=was_truncated,
                 masked_count=masked_count,
+                cache_hit=cache_hit,
             )
             db.add(entry)
     except Exception as exc:
@@ -103,6 +105,7 @@ async def get_request_logs(
             "cost_usd": r.cost_usd, "duration_ms": r.duration_ms,
             "status_code": r.status_code, "was_truncated": r.was_truncated,
             "masked_count": r.masked_count,
+            "cache_hit": r.cache_hit,
         }
         for r in rows
     ]
@@ -123,6 +126,7 @@ async def get_request_log_by_id(request_id: str) -> dict[str, Any] | None:
             "cost_usd": r.cost_usd, "duration_ms": r.duration_ms,
             "status_code": r.status_code, "was_truncated": r.was_truncated,
             "masked_count": r.masked_count,
+            "cache_hit": r.cache_hit,
         }
 
 

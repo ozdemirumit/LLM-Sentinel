@@ -538,6 +538,7 @@ async def _handle_chat(request: Request, user: AuthenticatedUser, openai_format:
                 input_tokens=input_tok, output_tokens=output_tok, cost_usd=cost,
                 duration_ms=duration_ms, status_code=200,
                 was_truncated=was_truncated, masked_count=masked_count,
+                cache_hit=cache_hit,
             )
 
             # Metrics

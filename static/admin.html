@@ -689,8 +689,8 @@ async function loadAudit(){
 
 async function loadRequestLogs(){
   const data=await api('/v1/request-logs?limit=50');if(!Array.isArray(data)||!data.length){document.getElementById('requestlogs-table').innerHTML=emptyState('&#x1F4C4;','No request logs yet.');return;}
-  let rows=data.map(r=>`<tr><td style="font-size:.72rem;color:var(--muted)">${r.timestamp?new Date(r.timestamp).toLocaleString():'-'}</td><td>${r.provider||'-'}</td><td>${r.model||'-'}</td><td>${r.input_tokens} / ${r.output_tokens}</td><td>${r.cost_usd!=null?'$'+r.cost_usd.toFixed(5):'-'}</td><td>${r.duration_ms}ms</td><td><span class="badge ${r.status_code<400?'green':'red'}">${r.status_code}</span></td></tr>`).join('');
-  document.getElementById('requestlogs-table').innerHTML=tw(`<table><thead><tr><th>Time</th><th>Provider</th><th>Model</th><th>In / Out</th><th>Cost</th><th>Duration</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`);
+  let rows=data.map(r=>`<tr><td style="font-size:.72rem;color:var(--muted)">${r.timestamp?new Date(r.timestamp).toLocaleString():'-'}</td><td>${r.provider||'-'}</td><td>${r.model||'-'}</td><td>${r.input_tokens} / ${r.output_tokens}</td><td>${r.cost_usd!=null?'$'+r.cost_usd.toFixed(5):'-'}</td><td>${r.duration_ms}ms</td><td>${r.cache_hit?'<span class="badge green">Hit</span>':'<span class="badge yellow">Miss</span>'}</td><td><span class="badge ${r.status_code<400?'green':'red'}">${r.status_code}</span></td></tr>`).join('');
+  document.getElementById('requestlogs-table').innerHTML=tw(`<table><thead><tr><th>Time</th><th>Provider</th><th>Model</th><th>In / Out</th><th>Cost</th><th>Duration</th><th>Cache</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`);
 }
 async function cleanupLogs(){if(!confirm('Delete logs older than 30 days?'))return;const r=await api('/v1/request-logs/cleanup?older_than_days=30',{method:'DELETE'});toast(`Deleted ${r?.deleted||0} logs`);}
 

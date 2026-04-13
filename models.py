@@ -267,6 +267,7 @@ class RequestLogEntry(BaseModel):
     status_code: int = 200
     was_truncated: bool = False
     masked_count: int = 0
+    cache_hit: bool = False
 
 
 # ==========================================================================

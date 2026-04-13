@@ -330,6 +330,7 @@ class RequestLog(Base):
     status_code: Mapped[int] = mapped_column(Integer, default=200)
     was_truncated: Mapped[bool] = mapped_column(Boolean, default=False)
     masked_count: Mapped[int] = mapped_column(Integer, default=0)
+    cache_hit: Mapped[bool] = mapped_column(Boolean, default=False)
 
     client: Mapped["Client | None"] = relationship(back_populates="request_logs")
 

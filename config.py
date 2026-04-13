@@ -259,7 +259,7 @@ class Settings(BaseSettings):
     BACKUP_KEEP_DAYS: int = 7
 
     # == CACHE ==
-    CACHE_ENABLED: bool = False
+    CACHE_ENABLED: bool = True
     CACHE_TTL_SECONDS: int = 3600
     CACHE_MAX_TOKENS: int = 1000
     CACHE_STRATEGY: str = "exact"
