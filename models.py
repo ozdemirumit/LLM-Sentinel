@@ -589,6 +589,8 @@ class ContentPolicy(BaseModel):
         "system_prompt_inject", "system_prompt_enforce",
         "topic_block", "output_filter",
         "max_output_tokens", "model_restrict",
+        "prompt_injection_detect", "jailbreak_detect",
+        "data_leakage_prevent",
     ]
     config_json: dict = Field(default_factory=dict)
     is_active: bool = True
@@ -603,6 +605,8 @@ class ContentPolicyCreate(BaseModel):
         "system_prompt_inject", "system_prompt_enforce",
         "topic_block", "output_filter",
         "max_output_tokens", "model_restrict",
+        "prompt_injection_detect", "jailbreak_detect",
+        "data_leakage_prevent",
     ]
     config_json: dict = Field(default_factory=dict)
     applies_to_clients: list[str] | None = None

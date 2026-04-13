@@ -1,12 +1,14 @@
 """
 Content policy / guardrails enforcement engine.
 
-Evaluates request messages and responses against content policies
-(system prompt injection, topic blocking, model restriction, etc.).
+Evaluates request messages and responses against content policies:
+system prompt injection, topic blocking, model restriction,
+prompt injection detection, jailbreak detection, data leakage prevention.
 """
 
 from __future__ import annotations
 
+import base64
 import fnmatch
 import re
 from typing import Any
@@ -15,6 +17,158 @@ from sqlalchemy import select
 
 from db import ContentPolicyDB, get_db
 from logger import get_logger
+
+log = get_logger(__name__)
+
+# ==========================================================================
+# Built-in threat detection patterns
+# ==========================================================================
+
+# Prompt injection patterns — known techniques to override system instructions
+PROMPT_INJECTION_PATTERNS: list[tuple[str, str]] = [
+    # Direct instruction override
+    (r"(?i)ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|prompts?|rules?|directions?)", "instruction_override"),
+    (r"(?i)disregard\s+(all\s+)?(previous|prior|your)\s+(instructions?|prompts?|rules?|programming)", "instruction_override"),
+    (r"(?i)forget\s+(all\s+)?(previous|prior|your)\s+(instructions?|context|rules?)", "instruction_override"),
+    (r"(?i)override\s+(your|all|the)\s+(instructions?|rules?|programming|directives?)", "instruction_override"),
+    (r"(?i)do\s+not\s+follow\s+(your|the|any)\s+(previous|original|initial)\s+(instructions?|rules?)", "instruction_override"),
+    # New persona / role hijacking
+    (r"(?i)you\s+are\s+now\s+(a|an|the)\s+", "role_hijack"),
+    (r"(?i)act\s+as\s+(if\s+you\s+are\s+|a\s+|an\s+)?(?:unrestricted|unfiltered|uncensored|evil|malicious)", "role_hijack"),
+    (r"(?i)pretend\s+(you\s+are|to\s+be)\s+(a|an)?\s*(?:unrestricted|different|new)\s*(AI|assistant|model)?", "role_hijack"),
+    (r"(?i)from\s+now\s+on\s+you\s+(will|must|should|are)", "role_hijack"),
+    (r"(?i)switch\s+to\s+(\w+\s+)?mode", "role_hijack"),
+    (r"(?i)enter\s+(developer|debug|admin|god|sudo|root|unrestricted)\s+mode", "role_hijack"),
+    # System prompt extraction
+    (r"(?i)(show|reveal|print|display|output|repeat|tell\s+me)\s+(your|the)\s+(system\s+)?(prompt|instructions?|rules?|programming|directives?)", "prompt_extraction"),
+    (r"(?i)what\s+(are|is)\s+your\s+(system\s+)?(prompt|instructions?|rules?|initial\s+prompt)", "prompt_extraction"),
+    (r"(?i)(give|share|leak|expose)\s+(me\s+)?(your|the)\s+(system|original|initial)\s+(prompt|instructions?)", "prompt_extraction"),
+    # Delimiter/separator attacks
+    (r"(?i)---+\s*(new|real|actual|true)\s+(instructions?|prompt|system)", "delimiter_attack"),
+    (r"(?i)<\|?(system|im_start|endoftext|INST)\|?>", "delimiter_attack"),
+    (r"(?i)\[INST\]|\[\/INST\]|\[SYSTEM\]", "delimiter_attack"),
+    (r"(?i)<<\s*SYS\s*>>|<<\s*/SYS\s*>>", "delimiter_attack"),
+    # Indirect injection markers
+    (r"(?i)AI,?\s+(please\s+)?(ignore|disregard|forget|override)", "indirect_injection"),
+    (r"(?i)attention\s+(AI|model|assistant|language\s+model)", "indirect_injection"),
+    (r"(?i)IMPORTANT:\s*(ignore|override|disregard|new\s+instructions?)", "indirect_injection"),
+]
+
+# Jailbreak patterns — attempts to bypass safety filters
+JAILBREAK_PATTERNS: list[tuple[str, str]] = [
+    # Known jailbreak names
+    (r"(?i)\bDAN\b.*\b(prompt|mode|jailbreak|do\s+anything)", "dan_jailbreak"),
+    (r"(?i)\b(DAN|STAN|DUDE|AIM|KEVIN|MONGO)\s*(mode|prompt|version|[0-9])", "named_jailbreak"),
+    (r"(?i)jailbr[ea]+k(ed|ing)?", "jailbreak_mention"),
+    (r"(?i)do\s+anything\s+now", "dan_jailbreak"),
+    # Safety bypass attempts
+    (r"(?i)(bypass|circumvent|evade|disable|turn\s+off|remove)\s+(your\s+)?(safety|content|ethical)\s*(filter|guard|check|restriction|limit)", "safety_bypass"),
+    (r"(?i)(bypass|circumvent|evade|ignore)\s+(your\s+)?(restrictions?|limitations?|guidelines?|guardrails?|policies)", "safety_bypass"),
+    (r"(?i)without\s+(any\s+)?(moral|ethical|safety|content)\s*(restrictions?|filters?|guidelines?|limitations?)", "safety_bypass"),
+    # Encoding/obfuscation tricks
+    (r"(?i)(respond|answer|reply|write)\s+in\s+(base64|hex|binary|rot13|morse|pig\s*latin|reverse)", "encoding_bypass"),
+    (r"(?i)(encode|encrypt|obfuscate)\s+(your\s+)?(response|answer|output)", "encoding_bypass"),
+    (r"(?i)translate\s+(this|your\s+response)\s+(to|into)\s+(base64|hex|binary)", "encoding_bypass"),
+    # Hypothetical framing
+    (r"(?i)(hypothetically|theoretically|in\s+theory|for\s+(educational|research|academic)\s+purposes?)\s*,?\s*(how\s+(would|could|can|do)\s+(one|you|someone|I))", "hypothetical_bypass"),
+    (r"(?i)imagine\s+you\s+(are|have)\s+no\s+(restrictions?|rules?|filters?|limitations?)", "hypothetical_bypass"),
+    (r"(?i)in\s+a\s+fictional\s+(world|scenario|story)\s+where\s+(there\s+are\s+)?no\s+rules?", "hypothetical_bypass"),
+    # Token manipulation
+    (r"(?i)s\.p\.l\.i\.t|s\s+p\s+l\s+i\s+t|b\.o\.m\.b|h\.a\.c\.k", "token_manipulation"),
+]
+
+# Data leakage patterns for output scanning — detect sensitive data in LLM responses
+DATA_LEAKAGE_PATTERNS: list[tuple[str, str, str]] = [
+    # API keys and tokens
+    (r"sk-ant-[a-zA-Z0-9\-]{20,}", "[LEAKED_ANTHROPIC_KEY]", "api_key"),
+    (r"sk-[a-zA-Z0-9]{20,}", "[LEAKED_OPENAI_KEY]", "api_key"),
+    (r"AKIA[0-9A-Z]{16}", "[LEAKED_AWS_KEY]", "api_key"),
+    (r"gh[pousr]_[A-Za-z0-9_]{36,}", "[LEAKED_GITHUB_TOKEN]", "api_key"),
+    (r"xox[baprs]-[A-Za-z0-9\-]+", "[LEAKED_SLACK_TOKEN]", "api_key"),
+    (r"AIza[0-9A-Za-z\-_]{35}", "[LEAKED_GOOGLE_KEY]", "api_key"),
+    # Internal paths and URLs
+    (r"(?i)(?:(?:/home/|/var/|/etc/|/opt/|C:\\\\|D:\\\\)[^\s\"'<>]{5,})", "[INTERNAL_PATH]", "internal_path"),
+    (r"(?i)(?:https?://(?:10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|localhost|127\.0\.0\.1)[^\s\"'<>]*)", "[INTERNAL_URL]", "internal_url"),
+    # Connection strings and secrets
+    (r"(?i)(?:mongodb|postgresql|mysql|redis|amqp)://[^\s\"'<>]+", "[LEAKED_CONNECTION_STRING]", "connection_string"),
+    (r"(?i)(?:password|passwd|pwd|secret|token)\s*[:=]\s*['\"][^'\"]{8,}['\"]", "[LEAKED_SECRET]", "secret"),
+    # Private keys
+    (r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----", "[LEAKED_PRIVATE_KEY]", "private_key"),
+    # IP addresses (private ranges)
+    (r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b", "[INTERNAL_IP]", "internal_ip"),
+]
+
+
+def _check_prompt_injection(text: str) -> list[dict]:
+    """Check text for prompt injection patterns. Returns list of detections."""
+    detections = []
+    for pattern, category in PROMPT_INJECTION_PATTERNS:
+        try:
+            match = re.search(pattern, text)
+            if match:
+                detections.append({
+                    "category": category,
+                    "matched": match.group()[:80],
+                    "type": "prompt_injection",
+                })
+        except re.error:
+            pass
+    return detections
+
+
+def _check_jailbreak(text: str) -> list[dict]:
+    """Check text for jailbreak patterns. Returns list of detections."""
+    detections = []
+    for pattern, category in JAILBREAK_PATTERNS:
+        try:
+            match = re.search(pattern, text)
+            if match:
+                detections.append({
+                    "category": category,
+                    "matched": match.group()[:80],
+                    "type": "jailbreak",
+                })
+        except re.error:
+            pass
+
+    # Check for base64 encoded instructions
+    try:
+        words = text.split()
+        for word in words:
+            if len(word) > 20 and re.match(r'^[A-Za-z0-9+/=]{20,}$', word):
+                try:
+                    decoded = base64.b64decode(word).decode("utf-8", errors="ignore").lower()
+                    if any(kw in decoded for kw in ["ignore", "override", "system", "instruction", "jailbreak", "bypass"]):
+                        detections.append({
+                            "category": "base64_encoded_injection",
+                            "matched": f"base64:{word[:30]}...",
+                            "type": "jailbreak",
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    return detections
+
+
+def _check_data_leakage(text: str) -> tuple[str, list[dict]]:
+    """Check response for data leakage. Returns (filtered_text, detections)."""
+    detections = []
+    for pattern, replacement, category in DATA_LEAKAGE_PATTERNS:
+        try:
+            matches = re.findall(pattern, text)
+            if matches:
+                for m in matches:
+                    detections.append({
+                        "category": category,
+                        "matched": m[:40] + "..." if len(m) > 40 else m,
+                        "type": "data_leakage",
+                    })
+                text = re.sub(pattern, replacement, text)
+        except re.error:
+            pass
+    return text, detections
 from models import (
     ContentPolicy,
     ContentPolicyCreate,
@@ -129,6 +283,56 @@ async def evaluate_request(
             if max_tokens:
                 result.applied_policies.append(f"max_output_tokens:{policy.name}:{max_tokens}")
 
+        elif ptype == "prompt_injection_detect":
+            action = config.get("action", "reject")
+            msg_text = config.get("message", "Prompt injection detected and blocked.")
+            sensitivity = config.get("sensitivity", "medium")  # low, medium, high
+            min_detections = {"low": 3, "medium": 1, "high": 1}.get(sensitivity, 1)
+
+            all_text = " ".join(
+                m.get("content", "") for m in modified
+                if isinstance(m.get("content"), str)
+            )
+
+            detections = _check_prompt_injection(all_text)
+            if len(detections) >= min_detections:
+                log.warning("Prompt injection detected", extra={
+                    "detections": len(detections),
+                    "categories": [d["category"] for d in detections],
+                    "client_id": client_id,
+                })
+                if action == "reject":
+                    result.allowed = False
+                    result.reject_reason = msg_text
+                    result.applied_policies.append(f"prompt_injection_detect:{policy.name}")
+                    return result
+                elif action == "flag":
+                    result.applied_policies.append(f"prompt_injection_flagged:{policy.name}:{len(detections)}")
+
+        elif ptype == "jailbreak_detect":
+            action = config.get("action", "reject")
+            msg_text = config.get("message", "Jailbreak attempt detected and blocked.")
+
+            all_text = " ".join(
+                m.get("content", "") for m in modified
+                if isinstance(m.get("content"), str)
+            )
+
+            detections = _check_jailbreak(all_text)
+            if detections:
+                log.warning("Jailbreak attempt detected", extra={
+                    "detections": len(detections),
+                    "categories": [d["category"] for d in detections],
+                    "client_id": client_id,
+                })
+                if action == "reject":
+                    result.allowed = False
+                    result.reject_reason = msg_text
+                    result.applied_policies.append(f"jailbreak_detect:{policy.name}")
+                    return result
+                elif action == "flag":
+                    result.applied_policies.append(f"jailbreak_flagged:{policy.name}:{len(detections)}")
+
     if modified != messages:
         result.modified_messages = modified
 
@@ -152,11 +356,26 @@ async def evaluate_response(
     was_filtered = False
 
     for policy in policies:
-        if policy.policy_type != "output_filter":
+        if policy.policy_type not in ("output_filter", "data_leakage_prevent"):
             continue
 
         config = policy.config_json or {}
         action = config.get("action", "redact")
+
+        if policy.policy_type == "data_leakage_prevent":
+            filtered_text, detections = _check_data_leakage(response_text)
+            if detections:
+                log.warning("Data leakage detected in response", extra={
+                    "detections": len(detections),
+                    "categories": [d["category"] for d in detections],
+                    "client_id": client_id,
+                })
+                if action == "block":
+                    return "[Response blocked: sensitive data detected]", True
+                else:
+                    response_text = filtered_text
+                    was_filtered = True
+            continue
 
         if config.get("check_pii"):
             # Basic PII patterns
