@@ -1298,7 +1298,7 @@ async def import_config_ep(request: Request, user: AuthenticatedUser = Depends(v
 # ===========================================================================
 
 @app.get("/v1/providers")
-async def list_providers(user: AuthenticatedUser = Depends(verify_admin)):
+async def list_providers(user: AuthenticatedUser = Depends(get_current_user)):
     from db import ProviderConfigDB, get_db
     from sqlalchemy import select
     async with get_db() as db:
